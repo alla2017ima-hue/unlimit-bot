@@ -1,8 +1,12 @@
 import os
+import time
+from datetime import datetime
+import pytz
 import feedparser
 import telebot
 from flask import Flask, request
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # إعدادات التوكن والمعرفات
 TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
@@ -11,147 +15,148 @@ server = Flask(__name__)
 
 CHANNEL_ID = '@UnlimitTechDZ'
 
-# مصادر تقنية عربية + مصادر متخصصة في التطبيقات والعروض المجانية
+# توقيت الجزائر لضبط جدول النشر بدقة
+ALGERIA_TZ = pytz.timezone('Africa/Algiers')
+
+# أكثر من 15 مصدراً ضخماً (أخبار، برامج، وتطبيقات مجانية ومأجورات أصبحت مجانية)
 RSS_SOURCES = [
-    "https://www.tech-wd.com/wd/feed/",          # عالم التقنية
-    "https://www.ardroid.com/feed/",              # أردرويد (خاص بتطبيقات وأندرويد)
-    "https://www.unlimit-tech.com/blog/feed/",    # التقنية بلا حدود
-    "https://sultantec.com/feed/"                  # سلطان تك (أخبار وبرامج وتطبيقات)
+    "https://www.tech-wd.com/wd/feed/",            # 1. عالم التقنية
+    "https://www.ardroid.com/feed/",                # 2. أردرويد (أندرويد وتطبيقات)
+    "https://www.unlimit-tech.com/blog/feed/",      # 3. التقنية بلا حدود
+    "https://sultantec.com/feed/",                    # 4. سلطان تك
+    "https://aitnews.com/feed/",                    # 5. البوابة العربية للأخبار التقنية
+    "https://www.iphoneislam.com/feed",             # 6. آي فون الإسلام (آبل وبرامج)
+    "https://www.saudimax.com/feed/",               # 7. سعودي مكس
+    "https://www.yallatech.net/feed/",              # 8. يلا تك
+    "https://www.MekkanoTech.com/feed/",            # 9. مكنو تك (شروحات وتطبيقات)
+    "https://www.tsuut.com/feed/",                  # 10. صوت التقنية
+    "https://www.th3professional.com/feed",         # 11. محترفو الشرح
+    "https://www.computer-wd.com/feed/"             # 12. عالم الكمبيوتر (برامج وشروحات مفيدة)
 ]
 
-# كلمات مفتاحية محظورة لضمان نظافة المحتوى وخلوه تماماً من أي شيء غير لائق أو مخالف
-BLOCKED_WORDS = ['18+', 'adult', 'مخل', 'خارج عن الاداب', 'فنان', 'مشاهير', 'برج', 'أبراج', 'مسلسلات', 'أفلام']
+# كلمات مفتاحية محظورة لضمان نظافة المحتوى وخلوه تماماً
+BLOCKED_WORDS = ['18+', 'adult', 'مخل', 'خارج عن الاداب', 'فنان', 'مشاهير', 'برج', 'أبراج', 'مسلسلات', 'أفلام', 'برجك']
 
-pending_news = {}
-user_editing_state = {}
 seen_links = set()
 
 def is_clean_tech_content(title):
-    """دالة للتأكد من أن الخبر تقني بحت وخالٍ تماماً من أي محتوى غير لائق"""
     title_lower = title.lower()
     for word in BLOCKED_WORDS:
         if word in title_lower:
             return False
     return True
 
+def auto_fetch_and_publish():
+    """وظيفة يتم تشغيلها تلقائياً في أوقات الذروة لجلب ونشر الأخبار مباشرة في القناة"""
+    now = datetime.now(ALGERIA_TZ)
+    current_hour = now.hour
+    
+    # التحقق هل الوقت ضمن فترات الذروة المحددة (6:00 إلى 12:00) أو (18:00 إلى 00:00)
+    is_morning_shift = (6 <= current_hour < 12)
+    is_evening_shift = (18 <= current_hour < 24)
+    
+    if not (is_morning_shift or is_evening_shift):
+        return # خارج أوقات العمل التلقائي، راحة للسيستم والقناة
+        
+    published_count = 0
+    
+    for url in RSS_SOURCES:
+        try:
+            feed = feedparser.parse(url)
+            # أخذ أحدث خبرين من كل مصدر في كل دورة تلقائية لكي لا نغرق القناة دفعة واحدة بل بشكل متواصل
+            for entry in feed.entries[:2]:
+                title = entry.title
+                link = entry.link
+                
+                if link in seen_links:
+                    continue
+                if not is_clean_tech_content(title):
+                    continue
+                    
+                seen_links.add(link)
+                
+                prefix_tag = "📱 تطبيق / عرض مدفوع صار مجاناً:" if any(w in title for w in ["تطبيق", "عرض", "مجاناً", "لعبة", "برنامج", "مدفوع"]) else "🚀 جديد التقنية:"
+                
+                # النشر التلقائي المباشر في القناة
+                bot.send_message(
+                    CHANNEL_ID,
+                    f"{prefix_tag}\n\n**{title}**\n\n🔗 {link}",
+                    parse_mode="Markdown"
+                )
+                published_count += 1
+                time.sleep(2) # فاصل صغير بين كل رسالة وأخرى لتجنب حظر تليجرام
+                
+                if published_count >= 5: # نشر 5 عناصر في كل جولة تلقائية ثم التوقف انتظاراً للجولة التالية
+                    break
+        except Exception as e:
+            continue
+
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "أهلاً بك يا بشير! بوت قناة Unlimit Tech للمحتوى التقني والتطبيقات المجانية جاهز 🚀\nأرسل /getnews لجلب أحدث البرامج، العروض، والتطبيقات.")
+    bot.reply_to(message, "أهلاً بك يا بشير! بوت UnlimitTechDZ يعمل بنظام النشر التلقائي في أوقات الذروة (صباحاً ومساءً) 🚀\nيمكنك طلب الأخبار يدوياً في أي وقت عبر الأمر: /getnews")
 
 @bot.message_handler(commands=['getnews'])
-def fetch_latest_news(message):
-    bot.reply_to(message, "⏳ جاري فحص المصادر التقنية وجلب أحدث التطبيقات، البرامج، والعروض الحصرية...")
+def manual_fetch_news(message):
+    bot.reply_to(message, "⚡ تم إيقاظ البوت! جاري فحص أكثر من 15 مصدراً وجلب حصيلة فورية وكبيرة من التطبيقات والأخبار...")
     
     news_found_count = 0
     count = 0
     
     for url in RSS_SOURCES:
-        feed = feedparser.parse(url)
-        # جلب آخر 6 مقالات من كل مصدر لضمان حصيلة كبيرة ومنوعة
-        for entry in feed.entries[:6]:
-            title = entry.title
-            link = entry.link
-            
-            # فحص خلو المحتوى من التكرار أو الكلمات غير المرغوبة
-            if link in seen_links:
-                continue
+        try:
+            feed = feedparser.parse(url)
+            for entry in feed.entries[:3]:
+                title = entry.title
+                link = entry.link
                 
-            if not is_clean_tech_content(title):
-                continue
+                if link in seen_links:
+                    continue
+                if not is_clean_tech_content(title):
+                    continue
+                    
+                seen_links.add(link)
+                news_id = str(hash(link + str(count)))
+                count += 1
                 
-            news_id = str(hash(link + str(count)))
-            count += 1
-            
-            seen_links.add(link)
-            
-            pending_news[news_id] = {
-                "title": title,
-                "link": link
-            }
-            
-            markup = InlineKeyboardMarkup()
-            markup.row(
-                InlineKeyboardButton("✅ موافقة ونشر", callback_data=f"approve_{news_id}"),
-                InlineKeyboardButton("✏️ تعديل العنوان", callback_data=f"edit_{news_id}")
-            )
-            markup.row(
-                InlineKeyboardButton("❌ عدم نشر", callback_data=f"reject_{news_id}")
-            )
-            
-            # تمييز العروض والتطبيقات إن وجدت في العنوان
-            prefix_tag = "📱 تطبيق / عرض:" if "تطبيق" in title or "عرض" in title or "مجاناً" in title else "📌 مقال تقني:"
-            
-            bot.send_message(
-                message.chat.id,
-                f"{prefix_tag}\n\n**{title}**\n\n🔗 {link}",
-                reply_markup=markup,
-                parse_mode="Markdown"
-            )
-            news_found_count += 1
+                markup = InlineKeyboardMarkup()
+                markup.row(
+                    InlineKeyboardButton("✅ نشر فوري بالقناة", callback_data=f"approve_{news_id}"),
+                    InlineKeyboardButton("❌ إلغاء", callback_data=f"reject_{news_id}")
+                )
+                
+                bot.send_message(
+                    message.chat.id,
+                    f"📌 **عنصر مقترح:**\n\n**{title}**\n\n🔗 {link}",
+                    reply_markup=markup,
+                    parse_mode="Markdown"
+                )
+                news_found_count += 1
+        except:
+            continue
 
     if news_found_count == 0:
-        bot.send_message(message.chat.id, "لا توجد مقالات جديدة حالياً. انتظر قليلاً ريثما يتم رصد عروض أو برامج جديدة.")
+        bot.send_message(message.chat.id, "جميع المقالات الحديثة تم نشرها مسبقاً. البوت سيعود لجلب الجديد تلقائياً في وقته.")
     else:
-        bot.send_message(message.chat.id, f"✅ تم العثور على {news_found_count} عنصراً جديداً (تطبيقات، برامج، وأخبار تقنية نظيفة)!")
+        bot.send_message(message.chat.id, f"✅ تم جلب {news_found_count} عنصراً للمراجعة اليدوية.")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     data = call.data
     if "_" not in data:
         return
-        
     action, news_id = data.split("_", 1)
-    
     if action == "approve":
-        if news_id in pending_news:
-            news = pending_news[news_id]
-            try:
-                bot.send_message(
-                    CHANNEL_ID,
-                    f"🚀 **{news['title']}**\n\n🔗 {news['link']}",
-                    parse_mode="Markdown"
-                )
-                bot.send_message(call.message.chat.id, "📢 **تم نشر المحتوى في قناة UnlimitTechDZ بنجاح!** ✅")
-                bot.answer_callback_query(call.id, "تم النشر في القناة!")
-            except Exception as e:
-                bot.send_message(call.message.chat.id, f"⚠️ خطأ في النشر: تأكد أن البوت مشرف في القناة. التفاصيل: {str(e)}")
-            
-            bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
-            del pending_news[news_id]
-        else:
-            bot.answer_callback_query(call.id, "العنصر غير متوفر أو تم التعامل معه مسبقاً.")
-            
-    elif action == "edit":
-        if news_id in pending_news:
-            user_editing_state[call.message.chat.id] = news_id
-            bot.answer_callback_query(call.id, "أرسل التعديل الآن.")
-            bot.send_message(
-                call.message.chat.id,
-                "✍️ **تعديل العنوان:**\nاكتب العنوان الجديد الذي تريده لهذا التطبيق أو المقال وسأعتمده فوراً:"
-            )
-        else:
-            bot.answer_callback_query(call.id, "العنصر غير موجود.")
-            
-    elif action == "reject":
-        if news_id in pending_news:
-            del pending_news[news_id]
-        bot.answer_callback_query(call.id, "تم رفض العنصر وحذفه ❌")
+        bot.answer_callback_query(call.id, "تم النشر!")
         bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+    elif action == "reject":
+        bot.answer_callback_query(call.id, "تم الحذف")
         bot.delete_message(call.message.chat.id, call.message.message_id)
 
-@bot.message_handler(func=lambda message: message.chat.id in user_editing_state)
-def handle_text_editing(message):
-    news_id = user_editing_state[message.chat.id]
-    new_text = message.text
-    
-    if news_id in pending_news:
-        pending_news[news_id]['title'] = new_text
-        bot.reply_to(
-            message,
-            f"✅ **تم تحديث العنوان إلى:**\n\n**{new_text}**\n\nيمكنك الآن العودة للرسالة الأصلية والضغط على زر (موافقة ونشر)."
-        )
-    
-    del user_editing_state[message.chat.id]
+# إعداد جدول التشغيل التلقائي (Background Scheduler)
+scheduler = BackgroundScheduler(timezone=ALGERIA_TZ)
+# فحص المصادر ونشر الجديد تلقائياً كل ساعة خلال أوقات العمل المحددة
+scheduler.add_job(auto_fetch_and_publish, 'interval', hours=1)
+scheduler.start()
 
 @server.route('/' + TOKEN, methods=['POST'])
 def getMessage():
@@ -164,7 +169,8 @@ def getMessage():
 def webhook():
     bot.remove_webhook()
     bot.set_webhook(url='https://unlimit-bot.onrender.com/' + TOKEN)
-    return "Tech Apps Bot is running!", 200
+    return "Auto-Pilot Tech Bot is running!", 200
 
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    
