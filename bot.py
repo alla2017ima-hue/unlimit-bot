@@ -20,7 +20,7 @@ CHANNEL_ID = '@UnlimitTechDZ'
 SHRINKME_API_TOKEN = '896319677a1627b715581ada979db092b8961386'
 
 def shorten_link(original_link):
-    """دالة لاختصار الروابط تلقائياً عبر حسابك في ShrinkMe"""
+    """دالة لاختصار الروابط تلقائياً عبر حسابك في ShrinkMe لجلب الأرباح"""
     try:
         api_url = f"https://shrinkme.io/api?api={SHRINKME_API_TOKEN}&url={original_link}"
         response = requests.get(api_url, timeout=10)
@@ -54,7 +54,7 @@ RSS_SOURCES = [
 BLOCKED_WORDS = ['18+', 'adult', 'مخل', 'خارج عن الاداب', 'فنان', 'مشاهير', 'برج', 'أبراج', 'مسلسلات', 'أفلام', 'برجك']
 
 seen_links = set()
-pending_manual_news = {} # قاموس لحفظ بيانات المقالات اليدوية لحين النشر
+pending_manual_news = {}
 
 def is_clean_tech_content(title):
     title_lower = title.lower()
@@ -64,10 +64,11 @@ def is_clean_tech_content(title):
     return True
 
 def auto_fetch_and_publish():
-    """النشر التلقائي في أوقات الذروة مع اختصار الروابط لجلب الأرباح"""
+    """النشر المباشر التلقائي في أوقات الذروة مع اختصار الروابط لجلب الأرباح"""
     now = datetime.now(ALGERIA_TZ)
     current_hour = now.hour
     
+    # فترات الذروة: الصباحية (6 إلى 12) والمسائية (18 إلى 00)
     is_morning_shift = (6 <= current_hour < 12)
     is_evening_shift = (18 <= current_hour < 24)
     
@@ -79,7 +80,8 @@ def auto_fetch_and_publish():
     for url in RSS_SOURCES:
         try:
             feed = feedparser.parse(url)
-            for entry in feed.entries[:2]:
+            # جلب أحدث خبر من كل مصدر في كل دورة تلقائية
+            for entry in feed.entries[:1]:
                 title = entry.title
                 original_link = entry.link
                 
@@ -93,26 +95,28 @@ def auto_fetch_and_publish():
                 
                 prefix_tag = "📱 تطبيق / عرض مدفوع صار مجاناً:" if any(w in title for w in ["تطبيق", "عرض", "مجاناً", "لعبة", "برنامج", "مدفوع"]) else "🚀 جديد التقنية:"
                 
+                # النشر المباشر في القناة دون الحاجة لأي تدخل منك
                 bot.send_message(
                     CHANNEL_ID,
                     f"{prefix_tag}\n\n**{title}**\n\n🔗 {monetized_link}",
                     parse_mode="Markdown"
                 )
                 published_count += 1
-                time.sleep(2)
+                time.sleep(3)
                 
-                if published_count >= 5:
+                # نشر 3 عناصر كحد أقصى في كل جولة تلقائية حتى لا نغرق القناة
+                if published_count >= 3:
                     break
         except Exception as e:
             continue
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "أهلاً بك يا بشير! بوت UnlimitTechDZ يعمل بنظام النشر التلقائي واختصار الروابط لجلب الأرباح 🚀\nأمر الفحص اليدوي: /getnews")
+    bot.reply_to(message, "أهلاً بك يا بشير! بوت UnlimitTechDZ يعمل بنظام الطيار الآلي (النشر التلقائي واختصار الروابط) 🚀")
 
 @bot.message_handler(commands=['getnews'])
 def manual_fetch_news(message):
-    bot.reply_to(message, "⚡ جاري فحص المصادر وجلب التطبيقات والأخبار واختصار روابطها...")
+    bot.reply_to(message, "⚡ جاري فحص المصادر يدوياً...")
     
     news_found_count = 0
     count = 0
@@ -135,7 +139,6 @@ def manual_fetch_news(message):
                 news_id = str(hash(original_link + str(count)))
                 count += 1
                 
-                # حفظ العنوان والرابط المختصر مؤقتاً لتتمكن من نشره بالضغط على الزر
                 prefix_tag = "📱 تطبيق / عرض مدفوع صار مجاناً:" if any(w in title for w in ["تطبيق", "عرض", "مجاناً", "لعبة", "برنامج", "مدفوع"]) else "🚀 جديد التقنية:"
                 pending_manual_news[news_id] = {
                     "text": f"{prefix_tag}\n\n**{title}**\n\n🔗 {monetized_link}"
@@ -160,7 +163,7 @@ def manual_fetch_news(message):
     if news_found_count == 0:
         bot.send_message(message.chat.id, "لا توجد مقالات جديدة حالياً.")
     else:
-        bot.send_message(message.chat.id, f"✅ تم جلب {news_found_count} عنصراً جاهزاً للمراجعة والنشر.")
+        bot.send_message(message.chat.id, f"✅ تم جلب {news_found_count} عنصراً للمراجعة.")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -173,18 +176,16 @@ def callback_handler(call):
         if news_id in pending_manual_news:
             post_content = pending_manual_news[news_id]['text']
             try:
-                # إرسال المنشور فعلياً إلى قناتك العامة
                 bot.send_message(CHANNEL_ID, post_content, parse_mode="Markdown")
                 bot.answer_callback_query(call.id, "✅ تم النشر في القناة بنجاح!")
                 bot.send_message(call.message.chat.id, "📢 تم نشر الخبر في قناة UnlimitTechDZ!")
             except Exception as e:
                 bot.answer_callback_query(call.id, "⚠️ فشل النشر، تأكد أن البوت مشرف في القناة.")
             
-            # حذف الأزرار من رسالة الدردشة وإزالة العنصر من القائمة المؤقتة
             bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
             del pending_manual_news[news_id]
         else:
-            bot.answer_callback_query(call.id, "انتهت صلاحية هذا العنصر أو تم التعامل معه مسبقاً.")
+            bot.answer_callback_query(call.id, "انتهت صلاحية هذا العنصر.")
             
     elif action == "reject":
         if news_id in pending_manual_news:
@@ -192,7 +193,7 @@ def callback_handler(call):
         bot.answer_callback_query(call.id, "تم الحذف ❌")
         bot.delete_message(call.message.chat.id, call.message.message_id)
 
-# الجدول الزمني التلقائي
+# الجدول الزمني التلقائي: يفحص وينشر تلقائياً كل ساعة في أوقات الذروة
 scheduler = BackgroundScheduler(timezone=ALGERIA_TZ)
 scheduler.add_job(auto_fetch_and_publish, 'interval', hours=1)
 scheduler.start()
@@ -208,7 +209,8 @@ def getMessage():
 def webhook():
     bot.remove_webhook()
     bot.set_webhook(url='https://unlimit-bot.onrender.com/' + TOKEN)
-    return "Monetized Tech Bot is running!", 200
+    return "Auto-Pilot Monetized Bot is running!", 200
 
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+                
