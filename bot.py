@@ -29,7 +29,6 @@ def shorten_link(original_link):
             return data.get("shortenedUrl")
     except Exception as e:
         print(f"Error shortening link: {e}")
-    # في حال حدوث أي خطأ لا قدر الله، يعود الرابط الأصلي لكي لا يتعطل النشر
     return original_link
 
 # توقيت الجزائر لضبط جدول النشر بدقة
@@ -55,6 +54,7 @@ RSS_SOURCES = [
 BLOCKED_WORDS = ['18+', 'adult', 'مخل', 'خارج عن الاداب', 'فنان', 'مشاهير', 'برج', 'أبراج', 'مسلسلات', 'أفلام', 'برجك']
 
 seen_links = set()
+pending_manual_news = {} # قاموس لحفظ بيانات المقالات اليدوية لحين النشر
 
 def is_clean_tech_content(title):
     title_lower = title.lower()
@@ -89,8 +89,6 @@ def auto_fetch_and_publish():
                     continue
                     
                 seen_links.add(original_link)
-                
-                # اختصار الرابط تلقائياً لكسب الأرباح
                 monetized_link = shorten_link(original_link)
                 
                 prefix_tag = "📱 تطبيق / عرض مدفوع صار مجاناً:" if any(w in title for w in ["تطبيق", "عرض", "مجاناً", "لعبة", "برنامج", "مدفوع"]) else "🚀 جديد التقنية:"
@@ -137,16 +135,21 @@ def manual_fetch_news(message):
                 news_id = str(hash(original_link + str(count)))
                 count += 1
                 
+                # حفظ العنوان والرابط المختصر مؤقتاً لتتمكن من نشره بالضغط على الزر
+                prefix_tag = "📱 تطبيق / عرض مدفوع صار مجاناً:" if any(w in title for w in ["تطبيق", "عرض", "مجاناً", "لعبة", "برنامج", "مدفوع"]) else "🚀 جديد التقنية:"
+                pending_manual_news[news_id] = {
+                    "text": f"{prefix_tag}\n\n**{title}**\n\n🔗 {monetized_link}"
+                }
+                
                 markup = InlineKeyboardMarkup()
                 markup.row(
                     InlineKeyboardButton("✅ نشر فوري بالقناة", callback_data=f"approve_{news_id}"),
                     InlineKeyboardButton("❌ إلغاء", callback_data=f"reject_{news_id}")
                 )
                 
-                # تخزين الرابط المختصر للاستخدام عند الموافقة اليدوية إن لزم
                 bot.send_message(
                     message.chat.id,
-                    f"📌 **عنصر مقترح (رابط مختصر جاهز):**\n\n**{title}**\n\n🔗 {monetized_link}",
+                    f"📌 **عنصر مقترح:**\n\n{pending_manual_news[news_id]['text']}",
                     reply_markup=markup,
                     parse_mode="Markdown"
                 )
@@ -157,7 +160,7 @@ def manual_fetch_news(message):
     if news_found_count == 0:
         bot.send_message(message.chat.id, "لا توجد مقالات جديدة حالياً.")
     else:
-        bot.send_message(message.chat.id, f"✅ تم جلب {news_found_count} عنصراً مع الروابط المختصرة.")
+        bot.send_message(message.chat.id, f"✅ تم جلب {news_found_count} عنصراً جاهزاً للمراجعة والنشر.")
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -165,11 +168,28 @@ def callback_handler(call):
     if "_" not in data:
         return
     action, news_id = data.split("_", 1)
+    
     if action == "approve":
-        bot.answer_callback_query(call.id, "تم النشر بنجاح!")
-        bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+        if news_id in pending_manual_news:
+            post_content = pending_manual_news[news_id]['text']
+            try:
+                # إرسال المنشور فعلياً إلى قناتك العامة
+                bot.send_message(CHANNEL_ID, post_content, parse_mode="Markdown")
+                bot.answer_callback_query(call.id, "✅ تم النشر في القناة بنجاح!")
+                bot.send_message(call.message.chat.id, "📢 تم نشر الخبر في قناة UnlimitTechDZ!")
+            except Exception as e:
+                bot.answer_callback_query(call.id, "⚠️ فشل النشر، تأكد أن البوت مشرف في القناة.")
+            
+            # حذف الأزرار من رسالة الدردشة وإزالة العنصر من القائمة المؤقتة
+            bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
+            del pending_manual_news[news_id]
+        else:
+            bot.answer_callback_query(call.id, "انتهت صلاحية هذا العنصر أو تم التعامل معه مسبقاً.")
+            
     elif action == "reject":
-        bot.answer_callback_query(call.id, "تم الحذف")
+        if news_id in pending_manual_news:
+            del pending_manual_news[news_id]
+        bot.answer_callback_query(call.id, "تم الحذف ❌")
         bot.delete_message(call.message.chat.id, call.message.message_id)
 
 # الجدول الزمني التلقائي
@@ -192,4 +212,3 @@ def webhook():
 
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
-        
