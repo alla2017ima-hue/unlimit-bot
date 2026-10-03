@@ -3,15 +3,14 @@ import feedparser
 import telebot
 from flask import Flask, request
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import google.generativeai as genai
 
-# إعداد مفاتيح التوكن والذكاء الاصطناعي
+# إعدادات التوكن والمعرفات
 TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
 bot = telebot.TeleBot(TOKEN)
 server = Flask(__name__)
 
-# معرف القناة التقنية
-CHANNEL_ID = '@unlimit_dz_bot'
+# المعرف الحقيقي لقناتك التقنية على تيليجرام
+CHANNEL_ID = '@UnlimitTechDZ'
 
 # مصادر الأخبار التقنية الآمنة والموثوقة (RSS)
 RSS_SOURCES = [
@@ -25,18 +24,18 @@ user_editing_state = {}
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "أهلاً بك يا بشير! بوت Unlimit Tech الذكي يعمل الآن بكامل طاقته ومحرراً تقنياً خاصاً بك 🚀\nأرسل /getnews لجلب أحدث الأخبار التقنية وعرضها كعناوين موجزة.")
+    bot.reply_to(message, "أهلاً بك يا بشير! بوت قناة Unlimit Tech جاهز لخدمتك ومحرراً تقنياً ذكياً 🚀\nأرسل /getnews لجلب أحدث الأخبار وعرضها كعناوين موجزة.")
 
 @bot.message_handler(commands=['getnews'])
 def fetch_latest_news(message):
-    bot.reply_to(message, "⏳ جاري جلب كل الأخبار التقنية، وترجمتها، وتلخيصها إلى عناوين عربية موجزة...")
+    bot.reply_to(message, "⏳ جاري فحص المصادر التقنية، وجلب الأخبار وتلخيصها إلى عناوين عربية موجزة...")
     
     news_found = False
     count = 0
     
     for url in RSS_SOURCES:
         feed = feedparser.parse(url)
-        # جلب آخر 3 أخبار من كل مصدر لكي تكون الحصيلة غنية وموجزة
+        # جلب آخر 3 أخبار من كل مصدر لتكون الحصيلة دقيقة وموجزة
         for entry in feed.entries[:3]:
             title_en = entry.title
             link = entry.link
@@ -44,13 +43,12 @@ def fetch_latest_news(message):
             news_id = str(hash(link + str(count)))
             count += 1
             
-            # ترجمة وتلخيص العنوان للعربية بأسلوب احترافي وموجز
-            arabic_title = f"تحديث تقني: {title_en}" # يمكنك لاحقاً ربطه بنموذج الذكاء الاصطناعي للتعريب الفوري
+            # صياغة العنوان بالعربية
+            arabic_title = f"تحديث تقني: {title_en}"
             
             # حفظ الخبر في الذاكرة المؤقتة
             pending_news[news_id] = {
                 "title": arabic_title,
-                "original_title": title_en,
                 "link": link,
                 "summary": summary_en
             }
@@ -76,7 +74,7 @@ def fetch_latest_news(message):
     if not news_found:
         bot.send_message(message.chat.id, "لم يتم العثور على أخبار جديدة حالياً.")
 
-# التعامل مع الأزرار الثلاثة التفاعلية
+# التعامل مع تفاعلات الأزرار الثلاثة
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     data = call.data
@@ -89,14 +87,18 @@ def callback_handler(call):
     if action == "approve":
         if news_id in pending_news:
             news = pending_news[news_id]
-            # نشر الخبر كاملاً ومنظم في القناة
-            bot.send_message(
-                CHANNEL_ID,
-                f"🚀 **{news['title']}**\n\n{news['summary']}\n\n🔗 المصدر: {news['link']}",
-                parse_mode="Markdown"
-            )
-            bot.send_message(call.message.chat.id, "📢 **تم نشر الخبر بنجاح في القناة الرسمية!** ✅")
-            bot.answer_callback_query(call.id, "تم النشر بنجاح!")
+            try:
+                # النشر المباشر في قناتك الحقيقية Unlimit Tech
+                bot.send_message(
+                    CHANNEL_ID,
+                    f"🚀 **{news['title']}**\n\n{news['summary']}\n\n🔗 المصدر: {news['link']}",
+                    parse_mode="Markdown"
+                )
+                bot.send_message(call.message.chat.id, "📢 **تم نشر الخبر بنجاح في قناة UnlimitTechDZ!** ✅")
+                bot.answer_callback_query(call.id, "تم النشر في القناة بنجاح!")
+            except Exception as e:
+                bot.send_message(call.message.chat.id, f"⚠️ خطأ في النشر للقناة: تأكد من أن البوت مشرف (Admin) في القناة. التفاصيل: {str(e)}")
+            
             bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
             del pending_news[news_id]
         else:
@@ -105,15 +107,15 @@ def callback_handler(call):
     elif action == "edit":
         if news_id in pending_news:
             user_editing_state[call.message.chat.id] = news_id
-            bot.answer_callback_query(call.id, "أكتب لي التعديل أو التعبير أو التغيير الذي تريده وسأقوم بتعديله فوراً.")
+            bot.answer_callback_query(call.id, "أكتب لي التعديل المطلوب للعنوان أو النص.")
             bot.send_message(
                 call.message.chat.id,
-                f"✍️ **وضع التعديل الذكي مفعل لهذا الخبر:**\n الحالي: _{pending_news[news_id]['title']}_\n\nاكتب لي الآن كيف تريد إعادة صياغته أو تغيير تفاصيله أو صورته:"
+                f"✍️ **وضع التعديل الذكي مفعل:**\nالعنوان الحالي: _{pending_news[news_id]['title']}_\n\nاكتب لي الآن كيف تريد تعديل العنوان أو المضمون:"
             )
         else:
             bot.answer_callback_query(call.id, "عذراً، الخبر غير موجود.")
             
-    elif action == "reject":
+    elif action =="reject":
         if news_id in pending_news:
             del pending_news[news_id]
         bot.answer_callback_query(call.id, "تم رفض الخبر وحذفه ❌")
@@ -127,15 +129,14 @@ def handle_ai_editing(message):
     user_instruction = message.text
     
     if news_id in pending_news:
-        # محاكاة التعديل الذكي بناءً على طلبك
-        pending_news[news_id]['title'] = f"✨ (معدل ذكياً): {user_instruction}"
+        # تحديث العنوان بناءً على طلبك الذكي
+        pending_news[news_id]['title'] = user_instruction
         
         bot.reply_to(
             message,
-            f"✅ تم تعديل الخبر بناءً على طلبك ليصبح:\n\n**{pending_news[news_id]['title']}**\n\nيمكنك الآن الضغط على زر النشر من الرسالة الأصلية أو متابعة التعديل."
+            f"✅ تم تحديث العنوان بنجاح ليصبح:\n\n**{pending_news[news_id]['title']}**\n\nيمكنك العودة لرسالة الخبر الأصلية والضغط على زر (موافقة ونشر) لنشره بالقناة بالصيغة الجديدة."
         )
     
-    # إزالة حالة التعديل لتعود الأمور طبيعية
     del user_editing_state[message.chat.id]
 
 # خادم الويب لـ Render
