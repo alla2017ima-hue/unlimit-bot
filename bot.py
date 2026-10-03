@@ -1,7 +1,10 @@
+import os
 import telebot
+from flask import Flask, request
 
 TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
 bot = telebot.TeleBot(TOKEN)
+server = Flask(__name__)
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
@@ -11,4 +14,19 @@ def send_welcome(message):
 def echo_all(message):
     bot.reply_to(message, message.text)
 
-bot.infinity_polling()
+@server.route('/' + TOKEN, methods=['POST'])
+def getMessage():
+    json_string = request.get_data().decode('utf-8')
+    update = telebot.types.Update.de_json(json_string)
+    bot.process_new_updates([update])
+    return "!", 200
+
+@server.route("/")
+def webhook():
+    bot.remove_webhook()
+    bot.set_webhook(url='https://unlimit-bot.onrender.com/' + TOKEN)
+    return "Bot is running!", 200
+
+if __name__ == "__main__":
+    server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    
