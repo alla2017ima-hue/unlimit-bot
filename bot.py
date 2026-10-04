@@ -39,7 +39,6 @@ def smart_correct_and_rewrite(text):
     """دالة ذكية لتصحيح الأخطاء الإملائية والنحوية وتنسيق المنشور"""
     cleaned_text = text.strip()
     
- تصحيح الأخطاء الإملائية الشائعة والأخطاء المقصودة أو العفوية
     corrections = {
         "مرحبن": "مرحباً",
         "بكوم": "بكم",
@@ -53,7 +52,6 @@ def smart_correct_and_rewrite(text):
     for wrong, right in corrections.items():
         cleaned_text = cleaned_text.replace(wrong, right)
         
-    # إعادة ترتيب النص بصياغة احترافية جذابة
     formatted_post = f"إليكم أحدث المستجدات:\n\n{cleaned_text}\n\n💡 تابعونا للمزيد من التحديثات التقنية والحصرية."
     return formatted_post
 
@@ -61,7 +59,7 @@ def smart_correct_and_rewrite(text):
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍☠Unlimit Tech🇩🇿 🚀")
+    bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍☠Unlimit TechDZ🚀")
 
 @bot.message_handler(content_types=['text', 'photo', 'video', 'document'])
 def capture_forwarded_content(message):
