@@ -11,9 +11,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import re
 from google import genai
 
-# ==================== Al-I'dadat al-Asasiyah ====================
+# ==================== الإعدادات الأساسية ====================
 TELEGRAM_TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
-# Miftah Gemini API al-khass bi-ka allathi qamta bi-tawfiqih
 GEMINI_API_KEY = 'AQ.Ab8RN6JRlJ88PYPtrs0apZOrsKBhvTj7XCvZWPaSW_dxXwcU8w'
 SHRINKME_API_TOKEN = '896319677a1627b715581ada979db092b8961386'
 CHANNEL_ID = '@UnlimitTechDZ'
@@ -22,10 +21,10 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 server = Flask(__name__)
 ALGERIA_TZ = pytz.timezone('Africa/Algiers')
 
-# Tahyi'at 'amil al-zaka' al-istina'i Gemini
+# تهيئة عميل الذكاء الاصطناعي Gemini
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-# Masadir al-akhbar al-taqniyah
+# مصادر الأخبار التقنية
 RSS_SOURCES = [
     "https://www.tech-wd.com/wd/feed/",
     "https://www.ardroid.com/feed/",
@@ -44,10 +43,10 @@ RSS_SOURCES = [
 seen_links = set()
 pending_posts = {}
 
-# ==================== Al-Dawal al-Asasiyah ====================
+# ==================== الدوال الأساسية ====================
 
 def shorten_link(original_link):
-    """Ikhtisar al-rawabit tilpa'iyyan 'abr ShrinkMe"""
+    """اختصار الروابط تلقائياً عبر ShrinkMe"""
     try:
         if "t.me" in original_link or "telegram.dog" in original_link:
             return original_link
@@ -61,15 +60,15 @@ def shorten_link(original_link):
     return original_link
 
 def ai_rewrite_and_clean(original_text):
-    """I'adat siyaghat al-manshoor bi-istikhdam al-zaka' al-istina'i"""
+    """إعادة صياغة المنشور باستخدام الذكاء الاصطناعي"""
     prompt = f"""
-    Qum bi-i'adat siyaghat hatha al-manshoor al-taqni aw al-tatbiq bi-usloob ihtirafi, jazthab, wa nazeef bil-lughah al-arabiyah.
-    Shuroot sarimah:
-    1. Qum bi-izalat ayyu ma'rifat qanawat qadimat aw asma' masadir kharijiyah tamaman.
-    2. Ij'al al-usloob munasiban li-qanah taqniyah ismuha "UnlimitTechDZ".
-    3. Hafiz 'ala al-rawabit al-mawjudah aw utruk makanon wadihan laha.
+    قم بإعادة صياغة هذا المنشور التقني أو التطبيق بأسلوب احترافي، جذاب، وناظيف باللغة العربية.
+    شروط صارمة:
+    1. قم بإزالة أي معرفات قنوات قديمة أو أسماء مصادر خارجية تماماً.
+    2. إجعل الأسلوب مناسباً لقناة تقنية اسمها "UnlimitTechDZ".
+    3. حافظ على الروابط الموجودة أو اترك مكاناً واضحاً لها.
     
-    Al-nass al-asli:
+    النص الأصلي:
     {original_text}
     """
     try:
@@ -83,12 +82,12 @@ def ai_rewrite_and_clean(original_text):
         return original_text
 
 def ai_generate_reply(user_question):
-    """Ijabat al-zaka' al-istina'i 'ala talabat al-mutabi'in"""
+    """إجابة الذكاء الاصطناعي على طلبات المتابعين"""
     prompt = f"""
-    Anta mudir thaki wa musa'id taqni li-qanah "UnlimitTechDZ".
-    Ajib 'ala risalat al-mutabi' al-tali bi-usloob lateef, ihtirafi, wa musa'id jiddan bil-lughah al-arabiyah:
+    أنت مدير ذكي ومساعد تقني لقناة "UnlimitTechDZ".
+    أجب على رسالة المتابع التالي بأسلوب لطيف، احترافي، ومساعد جداً باللغة العربية:
     
-    Risalat al-mustakhdim: {user_question}
+    رسالة المستخدم: {user_question}
     """
     try:
         response = client.models.generate_content(
@@ -97,17 +96,17 @@ def ai_generate_reply(user_question):
         )
         return response.text
     except Exception as e:
-        return "Ahlan bik ya sadiqi, tamma istilam risalatuka wa sayatamma talbiyatuha!"
+        return "أهلاً بك يا صديقي، تم استلام رسالتك وسيتم تلبيتها!"
 
-# ==================== Mu'alajat al-Awamir ====================
+# ==================== معالجة الأوامر والرسائل ====================
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "Marhaban bik ya Bashir fi ghurfat tahakkum al-mudir al-thaki li-qanah 🏴‍☠Unlimit Tech🇩🇿 🚀")
+    bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍☠Unlimit Tech🇩🇿 🚀")
 
 @bot.message_handler(commands=['getnews'])
 def manual_fetch_news(message):
-    bot.reply_to(message, "⚡ Jari fahas masadir RSS...")
+    bot.reply_to(message, "⚡ جاري فحص مصادر RSS...")
     count = 0
     
     for url in RSS_SOURCES:
@@ -121,7 +120,7 @@ def manual_fetch_news(message):
                     continue
                 seen_links.add(original_link)
                 
-                rewritten_text = ai_rewrite_and_clean(f"Unwan al-maqal: {title}\nRabith: {original_link}")
+                rewritten_text = ai_rewrite_and_clean(f"عنوان المقال: {title}\nرابط: {original_link}")
                 
                 urls = re.findall(r'(https?://[^\s]+)', rewritten_text)
                 final_text = rewritten_text
@@ -132,29 +131,34 @@ def manual_fetch_news(message):
                 
                 post_id = str(hash(original_link))
                 pending_posts[post_id] = {
-                    "text": f"🚀 **Jadid al-Taqniyah:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
+                    "text": f"🚀 **جديد التقنية:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
                 }
                 
                 markup = InlineKeyboardMarkup()
                 markup.row(
-                    InlineKeyboardButton("✅ Nashr Fawri", callback_data=f"approve_{post_id}"),
-                    InlineKeyboardButton("❌ Ilghaa", callback_data=f"reject_{post_id}")
+                    InlineKeyboardButton("✅ نشر فوري", callback_data=f"approve_{post_id}"),
+                    InlineKeyboardButton("❌ إلغاء", callback_data=f"reject_{post_id}")
                 )
                 
-                bot.send_message(message.chat.id, f"📌 **Mu'ayanah:**\n\n{pending_posts[post_id]['text']}", reply_markup=markup, parse_mode="Markdown")
+                bot.send_message(message.chat.id, f"📌 **معاينة:**\n\n{pending_posts[post_id]['text']}", reply_markup=markup, parse_mode="Markdown")
                 count += 1
                 if count >= 3:
                     break
         except:
             continue
 
-@bot.message_handler(func=lambda message: message.forward_from_chat or (message.text and "http" in message.text))
+@bot.message_handler(content_types=['text', 'photo'])
 def capture_forwarded_content(message):
+    # دعم النصوص العادية أو التعليقات المرفقة مع الصور المحولة
     text = message.text or message.caption or ""
     if not text:
         return
         
-    bot.reply_to(message, "🤖 Jari mu'alajat al-manshoor 'abr al-zaka' al-istina'i...")
+    # استثناء الأوامر العادية لكي لا تتداخل مع المعالجة
+    if text.startswith('/'):
+        return
+        
+    bot.reply_to(message, "🤖 جاري معالجة المنشور عبر الذكاء الاصطناعي...")
     
     cleaned_and_rewritten = ai_rewrite_and_clean(text)
     
@@ -167,27 +171,21 @@ def capture_forwarded_content(message):
             
     post_id = str(hash(text))
     pending_posts[post_id] = {
-        "text": f"📱 **Tatbiq Mumayyiz:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
+        "text": f"📱 **تطبيق مميز:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
     }
     
     markup = InlineKeyboardMarkup()
     markup.row(
-        InlineKeyboardButton("✅ Nashr Fawri", callback_data=f"approve_{post_id}"),
-        InlineKeyboardButton("❌ Ilghaa", callback_data=f"reject_{post_id}")
+        InlineKeyboardButton("✅ نشر فوري", callback_data=f"approve_{post_id}"),
+        InlineKeyboardButton("❌ إلغاء", callback_data=f"reject_{post_id}")
     )
     
     bot.send_message(
         message.chat.id,
-        f"📌 **Al-Natijah:**\n\n{pending_posts[post_id]['text']}",
+        f"📌 **النتيجة:**\n\n{pending_posts[post_id]['text']}",
         reply_markup=markup,
         parse_mode="Markdown"
     )
-
-@bot.message_handler(func=lambda message: True)
-def handle_general_chat(message):
-    user_text = message.text
-    ai_reply = ai_generate_reply(user_text)
-    bot.reply_to(message, ai_reply)
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -201,17 +199,17 @@ def callback_handler(call):
             post_content = pending_posts[post_id]['text']
             try:
                 bot.send_message(CHANNEL_ID, post_content, parse_mode="Markdown")
-                bot.answer_callback_query(call.id, "✅ Tamma al-nashr binajah!")
-                bot.send_message(call.message.chat.id, "📢 Tamma nashr al-manshoor fi al-qanah!")
+                bot.answer_callback_query(call.id, "✅ تم النشر بنجاح!")
+                bot.send_message(call.message.chat.id, "📢 تم نشر المنشور في القناة!")
             except Exception as e:
-                bot.answer_callback_query(call.id, "⚠️ Fashal al-nashr, ta'akkad anna al-bot mushrif.")
+                bot.answer_callback_query(call.id, "⚠️ فشل النشر، تأكد أن البوت مشرف.")
             bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
             del pending_posts[post_id]
             
     elif action == "reject":
         if post_id in pending_posts:
             del pending_posts[post_id]
-        bot.answer_callback_query(call.id, "Tamma al-hadhth ❌")
+        bot.answer_callback_query(call.id, "تم الحذف ❌")
         bot.delete_message(call.message.chat.id, call.message.message_id)
 
 # ==================== Webhook ====================
@@ -231,4 +229,3 @@ def webhook():
 
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
-    
