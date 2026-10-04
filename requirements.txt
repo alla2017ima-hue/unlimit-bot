@@ -1,6 +1,7 @@
 pyTelegramBotAPI
 flask
+apscheduler
 feedparser
-pytz
-APScheduler
 requests
+pytz
+google-genai
