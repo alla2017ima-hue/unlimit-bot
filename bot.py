@@ -60,15 +60,18 @@ def shorten_link(original_link):
     return original_link
 
 def ai_rewrite_and_clean(original_text):
-    """إعادة صياغة المنشور باستخدام الذكاء الاصطناعي"""
+    """إعادة صياغة المنشور جذرياً وتطهيره باستخدام الذكاء الاصطناعي"""
     prompt = f"""
-    قم بإعادة صياغة هذا المنشور التقني أو التطبيق بأسلوب احترافي، جذاب، وناظيف باللغة العربية.
-    شروط صارمة:
-    1. قم بإزالة أي معرفات قنوات قديمة أو أسماء مصادر خارجية تماماً.
-    2. إجعل الأسلوب مناسباً لقناة تقنية اسمها "UnlimitTechDZ".
-    3. حافظ على الروابط الموجودة أو اترك مكاناً واضحاً لها.
-    
-    النص الأصلي:
+    أنت محرر وصحفي تقني محترف ومسؤول عن صياغة المحتوى لقناة تقنية اسمها "UnlimitTechDZ".
+    قم بقراءة النص التالي وإعادة صياغته بأسلوب جديد كلياً، جذاب، احترافي، وبعبارات مبتكرة باللغة العربية.
+
+    شروط صارمة جداً يجب تنفيذها بحذافيرها:
+    1. احذف تماماً أي اسم قناة أو معرف أو رابط دعائي أو توقيع لمصدر خارجي موجود في النص الأصلي.
+    2. لا تقم بنسخ النص الأصلي حرفياً، بل قم بتغيير صياغة الجمل والعبارات بأسلوب فريد ومميز خاص بنا.
+    3. اجعل المنشور متناسقاً وجميل التنسيق مع وضع بصمة قناة "UnlimitTechDZ" بطريقة ذكية.
+    4. حافظ على الروابط التقنية أو روابط التطبيقات الموجودة في النص أو اترك لها مكاناً واضحاً لتتم معالجتها.
+
+    النص الأصلي المراد صياغته:
     {original_text}
     """
     try:
@@ -149,16 +152,14 @@ def manual_fetch_news(message):
 
 @bot.message_handler(content_types=['text', 'photo'])
 def capture_forwarded_content(message):
-    # دعم النصوص العادية أو التعليقات المرفقة مع الصور المحولة
     text = message.text or message.caption or ""
     if not text:
         return
         
-    # استثناء الأوامر العادية لكي لا تتداخل مع المعالجة
     if text.startswith('/'):
         return
         
-    bot.reply_to(message, "🤖 جاري معالجة المنشور عبر الذكاء الاصطناعي...")
+    bot.reply_to(message, "🤖 جاري إعادة صياغة وتطهير المنشور بالذكاء الاصطناعي...")
     
     cleaned_and_rewritten = ai_rewrite_and_clean(text)
     
@@ -171,7 +172,7 @@ def capture_forwarded_content(message):
             
     post_id = str(hash(text))
     pending_posts[post_id] = {
-        "text": f"📱 **تطبيق مميز:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
+        "text": f"📱 **UnlimitTechDZ Exclusive:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
     }
     
     markup = InlineKeyboardMarkup()
@@ -182,7 +183,7 @@ def capture_forwarded_content(message):
     
     bot.send_message(
         message.chat.id,
-        f"📌 **النتيجة:**\n\n{pending_posts[post_id]['text']}",
+        f"📌 **النتيجة بعد الصياغة:**\n\n{pending_posts[post_id]['text']}",
         reply_markup=markup,
         parse_mode="Markdown"
     )
