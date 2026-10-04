@@ -24,22 +24,6 @@ ALGERIA_TZ = pytz.timezone('Africa/Algiers')
 # تهيئة عميل الذكاء الاصطناعي Gemini
 client = genai.Client(api_key=GEMINI_API_KEY)
 
-# مصادر الأخبار التقنية
-RSS_SOURCES = [
-    "https://www.tech-wd.com/wd/feed/",
-    "https://www.ardroid.com/feed/",
-    "https://www.unlimit-tech.com/blog/feed/",
-    "https://sultantec.com/feed/",
-    "https://aitnews.com/feed/",
-    "https://www.iphoneislam.com/feed",
-    "https://www.saudimax.com/feed/",
-    "https://www.yallatech.net/feed/",
-    "https://www.MekkanoTech.com/feed/",
-    "https://www.tsuut.com/feed/",
-    "https://www.th3professional.com/feed",
-    "https://www.computer-wd.com/feed/"
-]
-
 seen_links = set()
 pending_posts = {}
 
@@ -60,17 +44,16 @@ def shorten_link(original_link):
     return original_link
 
 def ai_rewrite_and_clean(original_text):
-    """إعادة صياغة جذرية ومبتكرة للمنشور مع إزالة كاملة للمصادر الخارجية"""
+    """إعادة صياغة كاملة، مبتكرة، وجذرية للمنشور بمنع النسخ الحرفي تماماً"""
     prompt = f"""
-    أنت محترف صناعة محتوى تقني ومدير لقناة "UnlimitTechDZ".
-    قم بقراءة هذا النص واكتب له صياغة جديدة تماماً، بأسلوب جذاب، مشوق، ومبتكر باللغة العربية.
+    أنت محرر تقني خبير ومبدع. مهمتك هي إعادة صياغة النص التالي بالكامل بأسلوب جديد كلياً، مبتكر، وجذاب باللغة العربية.
     
-    شروط صارمة:
-    1. امنع النسخ الحرفي تماماً، وقم بتغيير صياغة وترتيب الجمل بطريقة فريدة كأنك كتبت الخبر بنفسك.
-    2. احذف نهائياً أي اسم قناة، أو توقيع، أو معرف مصدر خارجي موجود في النص.
-    3. حافظ على الروابط التقنية أو اترك لها مكاناً واضحاً لكي يتم التعامل معها.
+    التعليمات الإلزامية:
+    1. ممنوع منعا باتا النسخ الحرفي أو نقل الجمل بنفس ترتيبها الأصلي. قم بتأليف وصياغة أفكار الخبر بأسلوبك الخاص وبكلمات جديدة كلياً كأنك أنت من كتبه.
+    2. احذف نهائياً أي اسم قناة، معرف، رابط دعائي، أو توقيع لمصدر خارجي مذكور في النص.
+    3. حافظ على الروابط التقنية أو روابط التطبيقات كما هي لكي يتم التعامل معها لاحقاً.
     
-    النص الأصلي:
+    النص المراد صياغته:
     {original_text}
     """
     try:
@@ -103,7 +86,7 @@ def capture_forwarded_content(message):
     if message.photo:
         photo_file_id = message.photo[-1].file_id
         
-    bot.reply_to(message, "🤖 جاري معالجة المنشور والصورة وصياغتها بالذكاء الاصطناعي...")
+    bot.reply_to(message, "🤖 جاري إعادة صياغة النص جذرياً وتطهيره بالذكاء الاصطناعي...")
     
     cleaned_and_rewritten = ai_rewrite_and_clean(text)
     
@@ -156,7 +139,6 @@ def callback_handler(call):
             post_content = post_data['text']
             photo_file_id = post_data.get('photo')
             try:
-                # النشر في القناة مع الصورة إذا كانت موجودة
                 if photo_file_id:
                     bot.send_photo(CHANNEL_ID, photo_file_id, caption=post_content, parse_mode="Markdown")
                 else:
