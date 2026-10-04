@@ -2,14 +2,18 @@ import os
 import time
 from datetime import datetime
 import pytz
-import feedparser
 import requests
 import telebot
 from flask import Flask, request
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from apscheduler.schedulers.background import BackgroundScheduler
 import re
-import google.generativeai as genai
+
+# محاولة استيراد مكتبة Gemini، وإذا لم تكن موجودة سنعتمد على الطلبات المباشرة لضمان عدم توقف السيرفر
+try:
+    import google.generativeai as genai
+    GEMINI_LIB_AVAILABLE = True
+except ImportError:
+    GEMINI_LIB_AVAILABLE = False
 
 # ==================== الإعدادات الأساسية ====================
 TELEGRAM_TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
@@ -21,17 +25,16 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 server = Flask(__name__)
 ALGERIA_TZ = pytz.timezone('Africa/Algiers')
 
-# تهيئة Gemini بالطريقة الكلاسيكية المستقرة
-genai.configure(api_key=GEMINI_API_KEY)
-generation_config = {
-    "temperature": 0.9,
-    "top_p": 0.95,
-    "top_k": 40,
-    "max_output_tokens": 1024,
-}
-model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=generation_config)
+if GEMINI_LIB_AVAILABLE:
+    genai.configure(api_key=GEMINI_API_KEY)
+    generation_config = {
+        "temperature": 0.9,
+        "top_p": 0.95,
+        "top_k": 40,
+        "max_output_tokens": 1024,
+    }
+    model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=generation_config)
 
-seen_links = set()
 pending_posts = {}
 
 # ==================== الدوال الأساسية ====================
@@ -51,7 +54,7 @@ def shorten_link(original_link):
     return original_link
 
 def ai_rewrite_and_clean(original_text):
-    """إعادة صياغة جذرية ومبتكرة للمنشور بمنع النسخ الحرفي تماماً"""
+    """إعادة صياغة جذرية للمنشور بمنع النسخ الحرفي تماماً"""
     prompt = f"""
     أنت كاتب محتوى تقني محترف ومبدع جداً. قم بإعادة صياغة النص التالي بالكامل بأسلوب جديد كلياً، مشوق، وجذاب باللغة العربية.
     شروط صارمة جداً:
@@ -61,13 +64,33 @@ def ai_rewrite_and_clean(original_text):
     النص المراد صياغته:
     {original_text}
     """
-    try:
-        response = model.generate_content(prompt)
-        if response and response.text:
-            return response.text.strip()
-    except Exception as e:
-        print(f"Gemini API Error: {e}")
     
+    # محاولة الطريقة الأولى عبر مكتبة Gemini
+    if GEMINI_LIB_AVAILABLE:
+        try:
+            response = model.generate_content(prompt)
+            if response and response.text:
+                return response.text.strip()
+        except Exception as e:
+            print(f"Gemini Library Error: {e}")
+
+    # الطريقة الاحتياطية المباشرة عبر REST API في حال واجهت أي مشكلة بالمكتبة
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        headers = {'Content-Type': 'application/json'}
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }]
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=15)
+        res_data = res.json()
+        text_result = res_data['candidates'][0]['content']['parts'][0]['text']
+        if text_result:
+            return text_result.strip()
+    except Exception as e:
+        print(f"Gemini REST API Error: {e}")
+        
     return original_text
 
 # ==================== معالجة الأوامر والرسائل ====================
@@ -80,10 +103,7 @@ def send_welcome(message):
 def capture_forwarded_content(message):
     text = message.text or message.caption or ""
     
-    if not text:
-        return
-        
-    if text.startswith('/'):
+    if not text or text.startswith('/'):
         return
         
     photo_file_id = None
