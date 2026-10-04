@@ -46,12 +46,8 @@ def shorten_link(original_link):
 def ai_rewrite_and_clean(original_text):
     """إعادة صياغة كاملة، مبتكرة، وجذرية للمنشور بمنع النسخ الحرفي تماماً"""
     prompt = f"""
-    أنت محرر تقني خبير ومبدع. مهمتك هي إعادة صياغة النص التالي بالكامل بأسلوب جديد كلياً، مبتكر، وجذاب باللغة العربية.
-    
-    التعليمات الإلزامية:
-    1. ممنوع منعا باتا النسخ الحرفي أو نقل الجمل بنفس ترتيبها الأصلي. قم بتأليف وصياغة أفكار الخبر بأسلوبك الخاص وبكلمات جديدة كلياً كأنك أنت من كتبه.
-    2. احذف نهائياً أي اسم قناة، معرف، رابط دعائي، أو توقيع لمصدر خارجي مذكور في النص.
-    3. حافظ على الروابط التقنية أو روابط التطبيقات كما هي لكي يتم التعامل معها لاحقاً.
+    قم بإعادة صياغة النص التقني التالي بالكامل باللغة العربية بأسلوب جديد كلياً، مشوق، ومبتكر.
+    تنبيه صارم: ممنوع منعاً باتاً نقل النص كما هو أو نسخه حرفياً. قم بتغيير العبارات والجمل تماماً بأسلوب احترافي خاص بك، واحذف أي معرف أو اسم قناة سابقة.
     
     النص المراد صياغته:
     {original_text}
@@ -61,10 +57,11 @@ def ai_rewrite_and_clean(original_text):
             model='gemini-2.5-flash',
             contents=prompt,
         )
-        return response.text
+        if response and response.text:
+            return response.text
     except Exception as e:
         print(f"AI Error: {e}")
-        return original_text
+    return original_text
 
 # ==================== معالجة الأوامر والرسائل ====================
 
@@ -72,9 +69,15 @@ def ai_rewrite_and_clean(original_text):
 def send_welcome(message):
     bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍☠Unlimit Tech🇩🇿 🚀")
 
-@bot.message_handler(content_types=['text', 'photo'])
+@bot.message_handler(content_types=['text', 'photo', 'video', 'document'])
 def capture_forwarded_content(message):
-    text = message.text or message.caption or ""
+    # فحص شامل لاستخراج النص سواء كان نصاً عادياً، تعليقاً على صورة، أو رسالة محولة
+    text = message.text or message.caption or getattr(message, 'html_text', '') or ""
+    
+    if not text and message.forward_from_chat:
+        # محاولة أخيرة لقراءة النص من الرسائل المحولة المعقدة
+        text = str(message.json.get('text', '')) or str(message.json.get('caption', ''))
+
     if not text:
         return
         
@@ -86,7 +89,7 @@ def capture_forwarded_content(message):
     if message.photo:
         photo_file_id = message.photo[-1].file_id
         
-    bot.reply_to(message, "🤖 جاري إعادة صياغة النص جذرياً وتطهيره بالذكاء الاصطناعي...")
+    bot.reply_to(message, "🤖 جاري إعادة صياغة النص وتطهيره جذرياً بالذكاء الاصطناعي...")
     
     cleaned_and_rewritten = ai_rewrite_and_clean(text)
     
@@ -97,7 +100,7 @@ def capture_forwarded_content(message):
             shortened = shorten_link(u)
             final_text = final_text.replace(u, shortened)
             
-    post_id = str(hash(text))
+    post_id = str(hash(text + str(time.time())))
     pending_posts[post_id] = {
         "text": f"📱 **UnlimitTechDZ Exclusive:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*",
         "photo": photo_file_id
@@ -109,7 +112,6 @@ def capture_forwarded_content(message):
         InlineKeyboardButton("❌ إلغاء", callback_data=f"reject_{post_id}")
     )
     
-    # إرسال المعاينة (مع الصورة إن وجدت أو نص فقط)
     if photo_file_id:
         bot.send_photo(
             message.chat.id,
