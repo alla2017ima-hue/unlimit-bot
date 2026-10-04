@@ -60,18 +60,17 @@ def shorten_link(original_link):
     return original_link
 
 def ai_rewrite_and_clean(original_text):
-    """إعادة صياغة المنشور جذرياً وتطهيره باستخدام الذكاء الاصطناعي"""
+    """إعادة صياغة جذرية ومبتكرة للمنشور مع إزالة كاملة للمصادر الخارجية"""
     prompt = f"""
-    أنت محرر وصحفي تقني محترف ومسؤول عن صياغة المحتوى لقناة تقنية اسمها "UnlimitTechDZ".
-    قم بقراءة النص التالي وإعادة صياغته بأسلوب جديد كلياً، جذاب، احترافي، وبعبارات مبتكرة باللغة العربية.
-
-    شروط صارمة جداً يجب تنفيذها بحذافيرها:
-    1. احذف تماماً أي اسم قناة أو معرف أو رابط دعائي أو توقيع لمصدر خارجي موجود في النص الأصلي.
-    2. لا تقم بنسخ النص الأصلي حرفياً، بل قم بتغيير صياغة الجمل والعبارات بأسلوب فريد ومميز خاص بنا.
-    3. اجعل المنشور متناسقاً وجميل التنسيق مع وضع بصمة قناة "UnlimitTechDZ" بطريقة ذكية.
-    4. حافظ على الروابط التقنية أو روابط التطبيقات الموجودة في النص أو اترك لها مكاناً واضحاً لتتم معالجتها.
-
-    النص الأصلي المراد صياغته:
+    أنت محترف صناعة محتوى تقني ومدير لقناة "UnlimitTechDZ".
+    قم بقراءة هذا النص واكتب له صياغة جديدة تماماً، بأسلوب جذاب، مشوق، ومبتكر باللغة العربية.
+    
+    شروط صارمة:
+    1. امنع النسخ الحرفي تماماً، وقم بتغيير صياغة وترتيب الجمل بطريقة فريدة كأنك كتبت الخبر بنفسك.
+    2. احذف نهائياً أي اسم قناة، أو توقيع، أو معرف مصدر خارجي موجود في النص.
+    3. حافظ على الروابط التقنية أو اترك لها مكاناً واضحاً لكي يتم التعامل معها.
+    
+    النص الأصلي:
     {original_text}
     """
     try:
@@ -84,71 +83,11 @@ def ai_rewrite_and_clean(original_text):
         print(f"AI Error: {e}")
         return original_text
 
-def ai_generate_reply(user_question):
-    """إجابة الذكاء الاصطناعي على طلبات المتابعين"""
-    prompt = f"""
-    أنت مدير ذكي ومساعد تقني لقناة "UnlimitTechDZ".
-    أجب على رسالة المتابع التالي بأسلوب لطيف، احترافي، ومساعد جداً باللغة العربية:
-    
-    رسالة المستخدم: {user_question}
-    """
-    try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt,
-        )
-        return response.text
-    except Exception as e:
-        return "أهلاً بك يا صديقي، تم استلام رسالتك وسيتم تلبيتها!"
-
 # ==================== معالجة الأوامر والرسائل ====================
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍☠Unlimit Tech🇩🇿 🚀")
-
-@bot.message_handler(commands=['getnews'])
-def manual_fetch_news(message):
-    bot.reply_to(message, "⚡ جاري فحص مصادر RSS...")
-    count = 0
-    
-    for url in RSS_SOURCES:
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:1]:
-                title = entry.title
-                original_link = entry.link
-                
-                if original_link in seen_links:
-                    continue
-                seen_links.add(original_link)
-                
-                rewritten_text = ai_rewrite_and_clean(f"عنوان المقال: {title}\nرابط: {original_link}")
-                
-                urls = re.findall(r'(https?://[^\s]+)', rewritten_text)
-                final_text = rewritten_text
-                for u in urls:
-                    if "shrinkme" not in u and "t.me" not in u:
-                        shortened = shorten_link(u)
-                        final_text = final_text.replace(u, shortened)
-                
-                post_id = str(hash(original_link))
-                pending_posts[post_id] = {
-                    "text": f"🚀 **جديد التقنية:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
-                }
-                
-                markup = InlineKeyboardMarkup()
-                markup.row(
-                    InlineKeyboardButton("✅ نشر فوري", callback_data=f"approve_{post_id}"),
-                    InlineKeyboardButton("❌ إلغاء", callback_data=f"reject_{post_id}")
-                )
-                
-                bot.send_message(message.chat.id, f"📌 **معاينة:**\n\n{pending_posts[post_id]['text']}", reply_markup=markup, parse_mode="Markdown")
-                count += 1
-                if count >= 3:
-                    break
-        except:
-            continue
 
 @bot.message_handler(content_types=['text', 'photo'])
 def capture_forwarded_content(message):
@@ -159,7 +98,12 @@ def capture_forwarded_content(message):
     if text.startswith('/'):
         return
         
-    bot.reply_to(message, "🤖 جاري إعادة صياغة وتطهير المنشور بالذكاء الاصطناعي...")
+    # التقاط الصورة المرفقة إن وجدت
+    photo_file_id = None
+    if message.photo:
+        photo_file_id = message.photo[-1].file_id
+        
+    bot.reply_to(message, "🤖 جاري معالجة المنشور والصورة وصياغتها بالذكاء الاصطناعي...")
     
     cleaned_and_rewritten = ai_rewrite_and_clean(text)
     
@@ -172,7 +116,8 @@ def capture_forwarded_content(message):
             
     post_id = str(hash(text))
     pending_posts[post_id] = {
-        "text": f"📱 **UnlimitTechDZ Exclusive:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
+        "text": f"📱 **UnlimitTechDZ Exclusive:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*",
+        "photo": photo_file_id
     }
     
     markup = InlineKeyboardMarkup()
@@ -181,12 +126,22 @@ def capture_forwarded_content(message):
         InlineKeyboardButton("❌ إلغاء", callback_data=f"reject_{post_id}")
     )
     
-    bot.send_message(
-        message.chat.id,
-        f"📌 **النتيجة بعد الصياغة:**\n\n{pending_posts[post_id]['text']}",
-        reply_markup=markup,
-        parse_mode="Markdown"
-    )
+    # إرسال المعاينة (مع الصورة إن وجدت أو نص فقط)
+    if photo_file_id:
+        bot.send_photo(
+            message.chat.id,
+            photo_file_id,
+            caption=f"📌 **معاينة مع الصورة:**\n\n{pending_posts[post_id]['text']}",
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
+    else:
+        bot.send_message(
+            message.chat.id,
+            f"📌 **معاينة:**\n\n{pending_posts[post_id]['text']}",
+            reply_markup=markup,
+            parse_mode="Markdown"
+        )
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
@@ -197,13 +152,20 @@ def callback_handler(call):
     
     if action == "approve":
         if post_id in pending_posts:
-            post_content = pending_posts[post_id]['text']
+            post_data = pending_posts[post_id]
+            post_content = post_data['text']
+            photo_file_id = post_data.get('photo')
             try:
-                bot.send_message(CHANNEL_ID, post_content, parse_mode="Markdown")
+                # النشر في القناة مع الصورة إذا كانت موجودة
+                if photo_file_id:
+                    bot.send_photo(CHANNEL_ID, photo_file_id, caption=post_content, parse_mode="Markdown")
+                else:
+                    bot.send_message(CHANNEL_ID, post_content, parse_mode="Markdown")
+                
                 bot.answer_callback_query(call.id, "✅ تم النشر بنجاح!")
                 bot.send_message(call.message.chat.id, "📢 تم نشر المنشور في القناة!")
             except Exception as e:
-                bot.answer_callback_query(call.id, "⚠️ فشل النشر، تأكد أن البوت مشرف.")
+                bot.answer_callback_query(call.id, f"⚠️ فشل النشر: {e}")
             bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
             del pending_posts[post_id]
             
