@@ -35,14 +35,27 @@ def shorten_link(original_link):
         print(f"Error shortening link: {e}")
     return original_link
 
-def smart_local_rewrite(text):
-    """دالة ذكية محلية لإعادة صياغة وتنسيق وتطهير النصوص واحترافيتها"""
-    # تنظيف النص من الروابط والمعرفات الزائدة
-    cleaned = text.strip()
+def smart_correct_and_rewrite(text):
+    """دالة ذكية لتصحيح الأخطاء الإملائية والنحوية وتنسيق المنشور"""
+    cleaned_text = text.strip()
     
-    # تحسين الصياغة وإضافة لمسة احترافية تقنية
-    rewritten = f"إليكم أحدث المستجدات:\n\n{cleaned}\n\n💡 تابعونا للمزيد من التحديثات التقنية والحصرية."
-    return rewritten
+ تصحيح الأخطاء الإملائية الشائعة والأخطاء المقصودة أو العفوية
+    corrections = {
+        "مرحبن": "مرحباً",
+        "بكوم": "بكم",
+        "عندن": "عندنا",
+        "يجمعة": "يوم الجمعة",
+        "الصلات": "الصلاة",
+        "انشاء الله": "إن شاء الله",
+        "اللهم صلي": "اللهم صلّ"
+    }
+    
+    for wrong, right in corrections.items():
+        cleaned_text = cleaned_text.replace(wrong, right)
+        
+    # إعادة ترتيب النص بصياغة احترافية جذابة
+    formatted_post = f"إليكم أحدث المستجدات:\n\n{cleaned_text}\n\n💡 تابعونا للمزيد من التحديثات التقنية والحصرية."
+    return formatted_post
 
 # ==================== معالجة الأوامر والرسائل ====================
 
@@ -61,9 +74,9 @@ def capture_forwarded_content(message):
     if message.photo:
         photo_file_id = message.photo[-1].file_id
         
-    bot.reply_to(message, "🤖 جاري معالجة وتنسيق المنشور...")
+    bot.reply_to(message, "🤖 جاري تصحيح الأخطاء وتنسيق المنشور...")
     
-    final_rewritten_text = smart_local_rewrite(text)
+    final_rewritten_text = smart_correct_and_rewrite(text)
     
     urls = re.findall(r'(https?://[^\s]+)', final_rewritten_text)
     final_text = final_rewritten_text
