@@ -10,6 +10,7 @@ import re
 
 # ==================== الإعدادات الأساسية ====================
 TELEGRAM_TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
+GEMINI_API_KEY = 'AQ.Ab8RN6JRlJ88PYPtrs0apZOrsKBhvTj7XCvZWPaSW_dxXwcU8w'
 SHRINKME_API_TOKEN = '896319677a1627b715581ada979db092b8961386'
 CHANNEL_ID = '@UnlimitTechDZ'
 
@@ -35,31 +36,41 @@ def shorten_link(original_link):
         print(f"Error shortening link: {e}")
     return original_link
 
-def smart_correct_and_rewrite(text):
-    """دالة ذكية لتصحيح الأخطاء الإملائية والنحوية وتنسيق المنشور"""
-    cleaned_text = text.strip()
+def ai_deep_rewrite(original_text):
+    """دالة ذكية لإعادة الصياغة الجذرية والشاملة للنص بالذكاء الاصطناعي"""
+    prompt = (
+        "أنت محرر تقني محترف. قم بإعادة صياغة النص التالي تغييراً كاملاً وجذرياً، "
+        "مع تغيير هيكل الجمل واستخدام مرادفات وأسلوب تقني جذاب ومختلف تماماً عن النص الأصلي، "
+        "مع الحفاظ على المعنى الأساسي، واحذف أي معرفات أو روابط دعائية إن وجدت.\n\n"
+        f"النص المراد صياغته:\n{original_text}"
+    )
     
-    corrections = {
-        "مرحبن": "مرحباً",
-        "بكوم": "بكم",
-        "عندن": "عندنا",
-        "يجمعة": "يوم الجمعة",
-        "الصلات": "الصلاة",
-        "انشاء الله": "إن شاء الله",
-        "اللهم صلي": "اللهم صلّ"
-    }
-    
-    for wrong, right in corrections.items():
-        cleaned_text = cleaned_text.replace(wrong, right)
+    try:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+        headers = {'Content-Type': 'application/json'}
+        payload = {
+            "contents": [{
+                "parts": [{"text": prompt}]
+            }]
+        }
+        res = requests.post(url, headers=headers, json=payload, timeout=25)
+        res_data = res.json()
         
-    formatted_post = f"إليكم أحدث المستجدات:\n\n{cleaned_text}\n\n💡 تابعونا للمزيد من التحديثات التقنية والحصرية."
-    return formatted_post
+        text_result = res_data.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
+        if text_result:
+            return text_result.strip()
+    except Exception as e:
+        print(f"Gemini API Error: {e}")
+        
+    # نظام احتياطي ذكي للتغيير الجذري في حال انقطاع الاتصال المؤقت
+    cleaned = original_text.strip()
+    return f"⚡ **تغطية خاصة وتحليل حصري:**\n\nنضع بين أيديكم تفاصيل وخلاصة ما جاء في:\n« {cleaned} »\n\nابقوا في قلب الحدث للمزيد."
 
 # ==================== معالجة الأوامر والرسائل ====================
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍☠Unlimit TechDZ🚀")
+    bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍☠Unlimit TechDZ 🚀")
 
 @bot.message_handler(content_types=['text', 'photo', 'video', 'document'])
 def capture_forwarded_content(message):
@@ -72,9 +83,9 @@ def capture_forwarded_content(message):
     if message.photo:
         photo_file_id = message.photo[-1].file_id
         
-    bot.reply_to(message, "🤖 جاري تصحيح الأخطاء وتنسيق المنشور...")
+    bot.reply_to(message, "🤖 جاري إعادة صياغة النص وتغيير هيكلته جذرياً...")
     
-    final_rewritten_text = smart_correct_and_rewrite(text)
+    final_rewritten_text = ai_deep_rewrite(text)
     
     urls = re.findall(r'(https?://[^\s]+)', final_rewritten_text)
     final_text = final_rewritten_text
