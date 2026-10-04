@@ -55,18 +55,13 @@ def shorten_link(original_link):
 
 def ai_rewrite_and_clean(original_text):
     """إعادة صياغة جذرية وإبداعية للمنشور بمنع النسخ الحرفي تماماً"""
-    prompt = f"""
-    أنت كاتب محتوى تقني خبير ومحترف لقناة تقنية شهيرة. قم بإعادة صياغة النص التالي بالكامل بأسلوب شيق، جذاب، ومختلف كلياً من حيث الترتيب وتنسيق الكلمات.
-    شروط صارمة جداً:
-    1. ممنوع منعاً باتاً النسخ الحرفي للجمل؛ قم بتوليد تعبيرات مرادفة وهيكلة جديدة تماماً للخبر مع الحفاظ على المعنى التقني الأصلي بدقة.
-    2. احذف نهائياً أي اسم قناة أخرى، معرف، أو روابط دعائية غير مرغوب فيها من النص.
-    3. اجعل الأسلوب احترافياً ومناسباً للنشر على تيليجرام.
+    prompt = (
+        "أنت كاتب محتوى تقني خبير. قم بإعادة صياغة النص التالي بالكامل بأسلوب شيق وجذاب باللغة العربية. "
+        "شروط صارمة: ممنوع النسخ الحرفي، غير هيكل الجمل تماماً، واحذف أي معرفات أو روابط دعائية إن وجدت.\n\n"
+        f"النص المراد صياغته:\n{original_text}"
+    )
     
-    النص المراد صياغته وإعادة صياغته بعمق:
-    {original_text}
-    """
-    
-    # محاولة الطريقة الأولى عبر مكتبة Gemini
+    # المحاولة الأولى باستخدام مكتبة جيميناي الرسمية
     if GEMINI_LIB_AVAILABLE:
         try:
             response = model.generate_content(prompt)
@@ -75,7 +70,7 @@ def ai_rewrite_and_clean(original_text):
         except Exception as e:
             print(f"Gemini Library Error: {e}")
 
-    # الطريقة الاحتياطية المباشرة عبر REST API
+    # المحاولة الاحتياطية عبر REST API مع التصحيح لمسار الاستجابة
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         headers = {'Content-Type': 'application/json'}
@@ -86,7 +81,9 @@ def ai_rewrite_and_clean(original_text):
         }
         res = requests.post(url, headers=headers, json=payload, timeout=15)
         res_data = res.json()
-        text_result = res_data['candidates'][0]['content']['parts'][0]['text']
+        
+        # استخراج النص بالطريقة الصحيحة من هيكل الـ JSON الخاص بـ Gemini
+        text_result = res_data.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
         if text_result:
             return text_result.strip()
     except Exception as e:
@@ -98,7 +95,7 @@ def ai_rewrite_and_clean(original_text):
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍☠Unlimit Tech🇩🇿 🚀")
+    bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍‍☠Unlimit Tech🇩🇿 🚀")
 
 @bot.message_handler(content_types=['text', 'photo', 'video', 'document'])
 def capture_forwarded_content(message):
