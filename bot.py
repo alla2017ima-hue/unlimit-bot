@@ -8,20 +8,49 @@ import telebot
 from flask import Flask, request
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from apscheduler.schedulers.background import BackgroundScheduler
+import re
+from google import genai
 
-# إعدادات التوكن والمعرفات
-TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
-bot = telebot.TeleBot(TOKEN)
-server = Flask(__name__)
-
+# ==================== Al-I'dadat al-Asasiyah ====================
+TELEGRAM_TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
+# Miftah Gemini API al-khass bi-ka allathi qamta bi-tawfiqih
+GEMINI_API_KEY = 'AQ.Ab8RN6JRlJ88PYPtrs0apZOrsKBhvTj7XCvZWPaSW_dxXwcU8w'
+SHRINKME_API_TOKEN = '896319677a1627b715581ada979db092b8961386'
 CHANNEL_ID = '@UnlimitTechDZ'
 
-# ربط حساب ShrinkMe الخاص بك عبر الـ API Token
-SHRINKME_API_TOKEN = '896319677a1627b715581ada979db092b8961386'
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
+server = Flask(__name__)
+ALGERIA_TZ = pytz.timezone('Africa/Algiers')
+
+# Tahyi'at 'amil al-zaka' al-istina'i Gemini
+client = genai.Client(api_key=GEMINI_API_KEY)
+
+# Masadir al-akhbar al-taqniyah
+RSS_SOURCES = [
+    "https://www.tech-wd.com/wd/feed/",
+    "https://www.ardroid.com/feed/",
+    "https://www.unlimit-tech.com/blog/feed/",
+    "https://sultantec.com/feed/",
+    "https://aitnews.com/feed/",
+    "https://www.iphoneislam.com/feed",
+    "https://www.saudimax.com/feed/",
+    "https://www.yallatech.net/feed/",
+    "https://www.MekkanoTech.com/feed/",
+    "https://www.tsuut.com/feed/",
+    "https://www.th3professional.com/feed",
+    "https://www.computer-wd.com/feed/"
+]
+
+seen_links = set()
+pending_posts = {}
+
+# ==================== Al-Dawal al-Asasiyah ====================
 
 def shorten_link(original_link):
-    """دالة لاختصار الروابط تلقائياً عبر حسابك في ShrinkMe لجلب الأرباح"""
+    """Ikhtisar al-rawabit tilpa'iyyan 'abr ShrinkMe"""
     try:
+        if "t.me" in original_link or "telegram.dog" in original_link:
+            return original_link
         api_url = f"https://shrinkme.io/api?api={SHRINKME_API_TOKEN}&url={original_link}"
         response = requests.get(api_url, timeout=10)
         data = response.json()
@@ -31,174 +60,163 @@ def shorten_link(original_link):
         print(f"Error shortening link: {e}")
     return original_link
 
-# توقيت الجزائر لضبط جدول النشر بدقة
-ALGERIA_TZ = pytz.timezone('Africa/Algiers')
-
-# مصادر الأخبار التقنية والتطبيقات
-RSS_SOURCES = [
-    "https://www.tech-wd.com/wd/feed/",            # 1. عالم التقنية
-    "https://www.ardroid.com/feed/",                # 2. أردرويد
-    "https://www.unlimit-tech.com/blog/feed/",      # 3. التقنية بلا حدود
-    "https://sultantec.com/feed/",                    # 4. سلطان تك
-    "https://aitnews.com/feed/",                    # 5. البوابة العربية للأخبار التقنية
-    "https://www.iphoneislam.com/feed",             # 6. آي فون الإسلام
-    "https://www.saudimax.com/feed/",               # 7. سعودي مكس
-    "https://www.yallatech.net/feed/",              # 8. يلا تك
-    "https://www.MekkanoTech.com/feed/",            # 9. مكنو تك
-    "https://www.tsuut.com/feed/",                  # 10. صوت التقنية
-    "https://www.th3professional.com/feed",         # 11. محترفو الشرح
-    "https://www.computer-wd.com/feed/"             # 12. عالم الكمبيوتر
-]
-
-# كلمات مفتاحية محظورة لضمان نظافة المحتوى
-BLOCKED_WORDS = ['18+', 'adult', 'مخل', 'خارج عن الاداب', 'فنان', 'مشاهير', 'برج', 'أبراج', 'مسلسلات', 'أفلام', 'برجك']
-
-seen_links = set()
-pending_manual_news = {}
-
-def is_clean_tech_content(title):
-    title_lower = title.lower()
-    for word in BLOCKED_WORDS:
-        if word in title_lower:
-            return False
-    return True
-
-def auto_fetch_and_publish():
-    """النشر المباشر التلقائي في أوقات الذروة مع اختصار الروابط لجلب الأرباح"""
-    now = datetime.now(ALGERIA_TZ)
-    current_hour = now.hour
+def ai_rewrite_and_clean(original_text):
+    """I'adat siyaghat al-manshoor bi-istikhdam al-zaka' al-istina'i"""
+    prompt = f"""
+    Qum bi-i'adat siyaghat hatha al-manshoor al-taqni aw al-tatbiq bi-usloob ihtirafi, jazthab, wa nazeef bil-lughah al-arabiyah.
+    Shuroot sarimah:
+    1. Qum bi-izalat ayyu ma'rifat qanawat qadimat aw asma' masadir kharijiyah tamaman.
+    2. Ij'al al-usloob munasiban li-qanah taqniyah ismuha "UnlimitTechDZ".
+    3. Hafiz 'ala al-rawabit al-mawjudah aw utruk makanon wadihan laha.
     
-    # فترات الذروة: الصباحية (6 إلى 12) والمسائية (18 إلى 00)
-    is_morning_shift = (6 <= current_hour < 12)
-    is_evening_shift = (18 <= current_hour < 24)
+    Al-nass al-asli:
+    {original_text}
+    """
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        return response.text
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return original_text
+
+def ai_generate_reply(user_question):
+    """Ijabat al-zaka' al-istina'i 'ala talabat al-mutabi'in"""
+    prompt = f"""
+    Anta mudir thaki wa musa'id taqni li-qanah "UnlimitTechDZ".
+    Ajib 'ala risalat al-mutabi' al-tali bi-usloob lateef, ihtirafi, wa musa'id jiddan bil-lughah al-arabiyah:
     
-    if not (is_morning_shift or is_evening_shift):
-        return
-        
-    published_count = 0
+    Risalat al-mustakhdim: {user_question}
+    """
+    try:
+        response = client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+        )
+        return response.text
+    except Exception as e:
+        return "Ahlan bik ya sadiqi, tamma istilam risalatuka wa sayatamma talbiyatuha!"
+
+# ==================== Mu'alajat al-Awamir ====================
+
+@bot.message_handler(commands=['start', 'help'])
+def send_welcome(message):
+    bot.reply_to(message, "Marhaban bik ya Bashir fi ghurfat tahakkum al-mudir al-thaki li-qanah 🏴‍☠Unlimit Tech🇩🇿 🚀")
+
+@bot.message_handler(commands=['getnews'])
+def manual_fetch_news(message):
+    bot.reply_to(message, "⚡ Jari fahas masadir RSS...")
+    count = 0
     
     for url in RSS_SOURCES:
         try:
             feed = feedparser.parse(url)
-            # جلب أحدث خبر من كل مصدر في كل دورة تلقائية
             for entry in feed.entries[:1]:
                 title = entry.title
                 original_link = entry.link
                 
                 if original_link in seen_links:
                     continue
-                if not is_clean_tech_content(title):
-                    continue
-                    
                 seen_links.add(original_link)
-                monetized_link = shorten_link(original_link)
                 
-                prefix_tag = "📱 تطبيق / عرض مدفوع صار مجاناً:" if any(w in title for w in ["تطبيق", "عرض", "مجاناً", "لعبة", "برنامج", "مدفوع"]) else "🚀 جديد التقنية:"
+                rewritten_text = ai_rewrite_and_clean(f"Unwan al-maqal: {title}\nRabith: {original_link}")
                 
-                # النشر المباشر في القناة دون الحاجة لأي تدخل منك
-                bot.send_message(
-                    CHANNEL_ID,
-                    f"{prefix_tag}\n\n**{title}**\n\n🔗 {monetized_link}",
-                    parse_mode="Markdown"
-                )
-                published_count += 1
-                time.sleep(3)
+                urls = re.findall(r'(https?://[^\s]+)', rewritten_text)
+                final_text = rewritten_text
+                for u in urls:
+                    if "shrinkme" not in u and "t.me" not in u:
+                        shortened = shorten_link(u)
+                        final_text = final_text.replace(u, shortened)
                 
-                # نشر 3 عناصر كحد أقصى في كل جولة تلقائية حتى لا نغرق القناة
-                if published_count >= 3:
-                    break
-        except Exception as e:
-            continue
-
-@bot.message_handler(commands=['start', 'help'])
-def send_welcome(message):
-    bot.reply_to(message, "أهلاً بك يا بشير! بوت UnlimitTechDZ يعمل بنظام الطيار الآلي (النشر التلقائي واختصار الروابط) 🚀")
-
-@bot.message_handler(commands=['getnews'])
-def manual_fetch_news(message):
-    bot.reply_to(message, "⚡ جاري فحص المصادر يدوياً...")
-    
-    news_found_count = 0
-    count = 0
-    
-    for url in RSS_SOURCES:
-        try:
-            feed = feedparser.parse(url)
-            for entry in feed.entries[:2]:
-                title = entry.title
-                original_link = entry.link
-                
-                if original_link in seen_links:
-                    continue
-                if not is_clean_tech_content(title):
-                    continue
-                    
-                seen_links.add(original_link)
-                monetized_link = shorten_link(original_link)
-                
-                news_id = str(hash(original_link + str(count)))
-                count += 1
-                
-                prefix_tag = "📱 تطبيق / عرض مدفوع صار مجاناً:" if any(w in title for w in ["تطبيق", "عرض", "مجاناً", "لعبة", "برنامج", "مدفوع"]) else "🚀 جديد التقنية:"
-                pending_manual_news[news_id] = {
-                    "text": f"{prefix_tag}\n\n**{title}**\n\n🔗 {monetized_link}"
+                post_id = str(hash(original_link))
+                pending_posts[post_id] = {
+                    "text": f"🚀 **Jadid al-Taqniyah:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
                 }
                 
                 markup = InlineKeyboardMarkup()
                 markup.row(
-                    InlineKeyboardButton("✅ نشر فوري بالقناة", callback_data=f"approve_{news_id}"),
-                    InlineKeyboardButton("❌ إلغاء", callback_data=f"reject_{news_id}")
+                    InlineKeyboardButton("✅ Nashr Fawri", callback_data=f"approve_{post_id}"),
+                    InlineKeyboardButton("❌ Ilghaa", callback_data=f"reject_{post_id}")
                 )
                 
-                bot.send_message(
-                    message.chat.id,
-                    f"📌 **عنصر مقترح:**\n\n{pending_manual_news[news_id]['text']}",
-                    reply_markup=markup,
-                    parse_mode="Markdown"
-                )
-                news_found_count += 1
+                bot.send_message(message.chat.id, f"📌 **Mu'ayanah:**\n\n{pending_posts[post_id]['text']}", reply_markup=markup, parse_mode="Markdown")
+                count += 1
+                if count >= 3:
+                    break
         except:
             continue
 
-    if news_found_count == 0:
-        bot.send_message(message.chat.id, "لا توجد مقالات جديدة حالياً.")
-    else:
-        bot.send_message(message.chat.id, f"✅ تم جلب {news_found_count} عنصراً للمراجعة.")
+@bot.message_handler(func=lambda message: message.forward_from_chat or (message.text and "http" in message.text))
+def capture_forwarded_content(message):
+    text = message.text or message.caption or ""
+    if not text:
+        return
+        
+    bot.reply_to(message, "🤖 Jari mu'alajat al-manshoor 'abr al-zaka' al-istina'i...")
+    
+    cleaned_and_rewritten = ai_rewrite_and_clean(text)
+    
+    urls = re.findall(r'(https?://[^\s]+)', cleaned_and_rewritten)
+    final_text = cleaned_and_rewritten
+    for u in urls:
+        if "shrinkme" not in u and "t.me" not in u:
+            shortened = shorten_link(u)
+            final_text = final_text.replace(u, shortened)
+            
+    post_id = str(hash(text))
+    pending_posts[post_id] = {
+        "text": f"📱 **Tatbiq Mumayyiz:**\n\n{final_text}\n\n🔗 *@UnlimitTechDZ*"
+    }
+    
+    markup = InlineKeyboardMarkup()
+    markup.row(
+        InlineKeyboardButton("✅ Nashr Fawri", callback_data=f"approve_{post_id}"),
+        InlineKeyboardButton("❌ Ilghaa", callback_data=f"reject_{post_id}")
+    )
+    
+    bot.send_message(
+        message.chat.id,
+        f"📌 **Al-Natijah:**\n\n{pending_posts[post_id]['text']}",
+        reply_markup=markup,
+        parse_mode="Markdown"
+    )
+
+@bot.message_handler(func=lambda message: True)
+def handle_general_chat(message):
+    user_text = message.text
+    ai_reply = ai_generate_reply(user_text)
+    bot.reply_to(message, ai_reply)
 
 @bot.callback_query_handler(func=lambda call: True)
 def callback_handler(call):
     data = call.data
     if "_" not in data:
         return
-    action, news_id = data.split("_", 1)
+    action, post_id = data.split("_", 1)
     
     if action == "approve":
-        if news_id in pending_manual_news:
-            post_content = pending_manual_news[news_id]['text']
+        if post_id in pending_posts:
+            post_content = pending_posts[post_id]['text']
             try:
                 bot.send_message(CHANNEL_ID, post_content, parse_mode="Markdown")
-                bot.answer_callback_query(call.id, "✅ تم النشر في القناة بنجاح!")
-                bot.send_message(call.message.chat.id, "📢 تم نشر الخبر في قناة UnlimitTechDZ!")
+                bot.answer_callback_query(call.id, "✅ Tamma al-nashr binajah!")
+                bot.send_message(call.message.chat.id, "📢 Tamma nashr al-manshoor fi al-qanah!")
             except Exception as e:
-                bot.answer_callback_query(call.id, "⚠️ فشل النشر، تأكد أن البوت مشرف في القناة.")
-            
+                bot.answer_callback_query(call.id, "⚠️ Fashal al-nashr, ta'akkad anna al-bot mushrif.")
             bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
-            del pending_manual_news[news_id]
-        else:
-            bot.answer_callback_query(call.id, "انتهت صلاحية هذا العنصر.")
+            del pending_posts[post_id]
             
     elif action == "reject":
-        if news_id in pending_manual_news:
-            del pending_manual_news[news_id]
-        bot.answer_callback_query(call.id, "تم الحذف ❌")
+        if post_id in pending_posts:
+            del pending_posts[post_id]
+        bot.answer_callback_query(call.id, "Tamma al-hadhth ❌")
         bot.delete_message(call.message.chat.id, call.message.message_id)
 
-# الجدول الزمني التلقائي: يفحص وينشر تلقائياً كل ساعة في أوقات الذروة
-scheduler = BackgroundScheduler(timezone=ALGERIA_TZ)
-scheduler.add_job(auto_fetch_and_publish, 'interval', hours=1)
-scheduler.start()
+# ==================== Webhook ====================
 
-@server.route('/' + TOKEN, methods=['POST'])
+@server.route('/' + TELEGRAM_TOKEN, methods=['POST'])
 def getMessage():
     json_string = request.get_data().decode('utf-8')
     update = telebot.types.Update.de_json(json_string)
@@ -208,9 +226,9 @@ def getMessage():
 @server.route("/")
 def webhook():
     bot.remove_webhook()
-    bot.set_webhook(url='https://unlimit-bot.onrender.com/' + TOKEN)
-    return "Auto-Pilot Monetized Bot is running!", 200
+    bot.set_webhook(url='https://unlimit-bot.onrender.com/' + TELEGRAM_TOKEN)
+    return "AI Master Bot is running smoothly!", 200
 
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
-                
+    
