@@ -9,7 +9,7 @@ from flask import Flask, request
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from apscheduler.schedulers.background import BackgroundScheduler
 import re
-from google import genai
+import google.generativeai as genai
 
 # ==================== الإعدادات الأساسية ====================
 TELEGRAM_TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
@@ -21,8 +21,15 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 server = Flask(__name__)
 ALGERIA_TZ = pytz.timezone('Africa/Algiers')
 
-# تهيئة عميل الذكاء الاصطناعي Gemini الطريقة القياسية الموثوقة
-client = genai.Client(api_key=GEMINI_API_KEY)
+# تهيئة Gemini بالطريقة الكلاسيكية المستقرة
+genai.configure(api_key=GEMINI_API_KEY)
+generation_config = {
+    "temperature": 0.9,
+    "top_p": 0.95,
+    "top_k": 40,
+    "max_output_tokens": 1024,
+}
+model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=generation_config)
 
 seen_links = set()
 pending_posts = {}
@@ -44,29 +51,24 @@ def shorten_link(original_link):
     return original_link
 
 def ai_rewrite_and_clean(original_text):
-    """إعادة صياغة كاملة وجذرية للمنشور بمنع النسخ الحرفي تماماً"""
+    """إعادة صياغة جذرية ومبتكرة للمنشور بمنع النسخ الحرفي تماماً"""
     prompt = f"""
-    أنت كاتب محتوى تقني مبترف. قم بإعادة صياغة النص التالي بالكامل بأسلوب جديد كلياً ومبتكر باللغة العربية.
-    شروط صارمة:
-    1. امنع النسخ الحرفي تماماً وغير صياغة الجمل والعبارات بطريقة إبداعية وفريدة.
-    2. احذف نهائياً أي اسم قناة، معرف، أو رابط دعائي خارجي.
+    أنت كاتب محتوى تقني محترف ومبدع جداً. قم بإعادة صياغة النص التالي بالكامل بأسلوب جديد كلياً، مشوق، وجذاب باللغة العربية.
+    شروط صارمة جداً:
+    1. امنع النسخ الحرفي تماماً وغير هيكل الجمل والعبارات بطريقة إبداعية وفريدة كأنك أنت من كتب الخبر.
+    2. احذف نهائياً أي اسم قناة، معرف، أو رابط دعائي خارجي موجود في النص.
     
     النص المراد صياغته:
     {original_text}
     """
     try:
-        response = client.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=prompt
-        )
-        # التأكد من استخراج النص بشكل صحيح وصريح
-        if response and hasattr(response, 'text') and response.text:
+        response = model.generate_content(prompt)
+        if response and response.text:
             return response.text.strip()
     except Exception as e:
-        print(f"CRITICAL AI Error: {e}")
+        print(f"Gemini API Error: {e}")
     
-    # إذا حدث أي خلل، سنعيد نصاً يوضح أن الذكاء الاصطناعي تدخل لتلاحظ الفرق
-    return f"⚠️ [إعادة صياغة تجريبية]: {original_text}"
+    return original_text
 
 # ==================== معالجة الأوامر والرسائل ====================
 
@@ -88,7 +90,7 @@ def capture_forwarded_content(message):
     if message.photo:
         photo_file_id = message.photo[-1].file_id
         
-    bot.reply_to(message, "🤖 جاري معالجة النص عبر الذكاء الاصطناعي...")
+    bot.reply_to(message, "🤖 جاري إعادة صياغة النص وتطهيره بالذكاء الاصطناعي...")
     
     cleaned_and_rewritten = ai_rewrite_and_clean(text)
     
