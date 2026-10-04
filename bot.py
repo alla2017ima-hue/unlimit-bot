@@ -35,32 +35,28 @@ def shorten_link(original_link):
         print(f"Error shortening link: {e}")
     return original_link
 
-def smart_autonomous_rewrite(text):
-    """محرك داخلي ذكي ومستقل لإعادة صياغة النصوص وتغيير بنيتها بالكامل"""
-    cleaned = text.strip()
+def clean_and_filter_text(text):
+    """دالة قوية لحذف المعرفات الدعائية، الروابط الإشهارية، وأسماء القنوات الأخرى تماماً"""
+    cleaned = text
     
-    # قائمة الاستبدال والتحويل الفوري للتعبيرات
-    replacements = {
-        "مرحبن": "أهلاً وسهلاً",
-        "مرحبا": "يسعدنا انضمامكم",
-        "بكوم": "بكم",
-        "عندن": "في منصتنا",
-        "يجمعة": "يوم الجمعة المبارك",
-        "اهلا": "مرحباً",
-        "السلام عليكم": "تحية طيبة وبعد"
-    }
+    # 1. حذف معرفات تيليغرام الإشهارية مثل @username
+    cleaned = re.sub(r'@[A-Za-z0-9_]+', '', cleaned)
     
-    for wrong, right in replacements.items():
-        cleaned = cleaned.replace(wrong, right)
+    # 2. حذف الروابط الإشهارية أو روابط تيليغرام الخارجية (باستثناء الروابط المهمة)
+    cleaned = re.sub(r'https?://t\.me/[^\s]+', '', cleaned)
+    cleaned = re.sub(r'https?://telegram\.dog/[^\s]+', '', cleaned)
+    
+    # 3. حذف جمل ترويجية شائعة مثل "متوفر عندي تخفيض..." أو ما شابه بناءً على الكلمات المفتاحية
+    lines = cleaned.split('\n')
+    filtered_lines = []
+    for line in lines:
+        # يمكنك إضافة أي كلمات إشهارية تريد حذفها تلقائياً هنا
+        if any(bad_word in line for bad_word in ["متوفر عندي", "تخفيض على اشتراكات", "اشتراك Premium مدفوع"]):
+            continue
+        filtered_lines.append(line)
         
-    # صياغة المنشور بشكل احترافي وجديد كلياً
-    structured_content = (
-        f"نضع بين أيديكم أبرز المستجدات والتفاصيل التقنية:\n\n"
-        f"« {cleaned} »\n\n"
-        f"نسعى دائمًا لتقديم أحدث التحديثات والأخبار الحصرية لتكونوا في قلب الحدث التقني."
-    )
-    
-    return structured_content
+    cleaned = '\n'.join(filtered_lines).strip()
+    return cleaned
 
 # ==================== معالجة الأوامر والرسائل ====================
 
@@ -79,14 +75,16 @@ def capture_forwarded_content(message):
     if message.photo:
         photo_file_id = message.photo[-1].file_id
         
-    bot.reply_to(message, "🤖 جاري معالجة وتغيير صياغة النص...")
+    bot.reply_to(message, "🧹 جاري تنظيف النص وإزالة المعرفات الدعائية...")
     
-    final_rewritten_text = smart_autonomous_rewrite(text)
+    # تطبيق دالة التصفية والحذف للجمل الإشهارية والمعرفات
+    final_cleaned_text = clean_and_filter_text(text)
     
-    urls = re.findall(r'(https?://[^\s]+)', final_rewritten_text)
-    final_text = final_rewritten_text
+    # معالجة واختصار الروابط المتبقية
+    urls = re.findall(r'(https?://[^\s]+)', final_cleaned_text)
+    final_text = final_cleaned_text
     for u in urls:
-        if "shrinkme" not in u and "t.me" not in u:
+        if "shrinkme" not in u:
             shortened = shorten_link(u)
             final_text = final_text.replace(u, shortened)
             
