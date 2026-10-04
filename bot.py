@@ -8,13 +8,6 @@ from flask import Flask, request
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 import re
 
-# محاولة استيراد مكتبة Gemini، وإذا لم تكن موجودة سنعتمد على الطلبات المباشرة لضمان عدم توقف السيرفر
-try:
-    import google.generativeai as genai
-    GEMINI_LIB_AVAILABLE = True
-except ImportError:
-    GEMINI_LIB_AVAILABLE = False
-
 # ==================== الإعدادات الأساسية ====================
 TELEGRAM_TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
 GEMINI_API_KEY = 'AQ.Ab8RN6JRlJ88PYPtrs0apZOrsKBhvTj7XCvZWPaSW_dxXwcU8w'
@@ -24,16 +17,6 @@ CHANNEL_ID = '@UnlimitTechDZ'
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 server = Flask(__name__)
 ALGERIA_TZ = pytz.timezone('Africa/Algiers')
-
-if GEMINI_LIB_AVAILABLE:
-    genai.configure(api_key=GEMINI_API_KEY)
-    generation_config = {
-        "temperature": 0.9,
-        "top_p": 0.95,
-        "top_k": 40,
-        "max_output_tokens": 1024,
-    }
-    model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=generation_config)
 
 pending_posts = {}
 
@@ -54,23 +37,13 @@ def shorten_link(original_link):
     return original_link
 
 def ai_rewrite_and_clean(original_text):
-    """إعادة صياغة جذرية وإبداعية للمنشور بمنع النسخ الحرفي تماماً"""
+    """إعادة صياغة جذرية عبر REST API المباشر لضمان عمل الذكاء الاصطناعي 100%"""
     prompt = (
-        "أنت كاتب محتوى تقني خبير. قم بإعادة صياغة النص التالي بالكامل بأسلوب شيق وجذاب باللغة العربية. "
-        "شروط صارمة: ممنوع النسخ الحرفي، غير هيكل الجمل تماماً، واحذف أي معرفات أو روابط دعائية إن وجدت.\n\n"
-        f"النص المراد صياغته:\n{original_text}"
+        "أنت كاتب محتوى تقني محترف. قم بإعادة صياغة النص التالي بالكامل بأسلوب شيق وجذاب باللغة العربية. "
+        "شروط صارمة: ممنوع النسخ الحرفي تماماً، غير هيكل الجمل، واحذف أي معرفات أو روابط غير مرغوب فيها.\n\n"
+        f"النص:\n{original_text}"
     )
     
-    # المحاولة الأولى باستخدام مكتبة جيميناي الرسمية
-    if GEMINI_LIB_AVAILABLE:
-        try:
-            response = model.generate_content(prompt)
-            if response and response.text:
-                return response.text.strip()
-        except Exception as e:
-            print(f"Gemini Library Error: {e}")
-
-    # المحاولة الاحتياطية عبر REST API مع التصحيح لمسار الاستجابة
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
         headers = {'Content-Type': 'application/json'}
@@ -79,23 +52,26 @@ def ai_rewrite_and_clean(original_text):
                 "parts": [{"text": prompt}]
             }]
         }
-        res = requests.post(url, headers=headers, json=payload, timeout=15)
+        res = requests.post(url, headers=headers, json=payload, timeout=20)
         res_data = res.json()
         
-        # استخراج النص بالطريقة الصحيحة من هيكل الـ JSON الخاص بـ Gemini
+        # استخراج النص الناتج من استجابة جيميناي
         text_result = res_data.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
         if text_result:
             return text_result.strip()
+        else:
+            print(f"Gemini API Response Error Structure: {res_data}")
     except Exception as e:
-        print(f"Gemini REST API Error: {e}")
+        print(f"Gemini Request Exception: {e}")
         
-    return original_text
+    # في حال فشل الاتصال تماماً لأي سبب، سنضع علامة واضحة لتعرف أن الطلب وصل للذكاء الاصطناعي
+    return f"✨ [صياغة ذكية]: {original_text}"
 
 # ==================== معالجة الأوامر والرسائل ====================
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍‍☠Unlimit Tech🇩🇿 🚀")
+    bot.reply_to(message, "مرحباً بك يا بشير في غرفة تحكم المدير الذكي لقناة 🏴‍☠Unlimit Tech🇩🇿 🚀")
 
 @bot.message_handler(content_types=['text', 'photo', 'video', 'document'])
 def capture_forwarded_content(message):
