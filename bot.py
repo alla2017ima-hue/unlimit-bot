@@ -36,10 +36,10 @@ def shorten_link(original_link):
     return original_link
 
 def smart_autonomous_rewrite(text):
-    """محرك داخلي ذكي ومستقل لإعادة صياغة النصوص وتغيير بنيتها بالكامل لتبدو احترافية"""
+    """محرك داخلي ذكي ومستقل لإعادة صياغة النصوص وتغيير بنيتها بالكامل"""
     cleaned = text.strip()
     
-    # قاموس لتصحيح الأخطاء الشائعة وتحويل العبارات العادية إلى صيغ تقنية أنيقة
+    # قائمة الاستبدال والتحويل الفوري للتعبيرات
     replacements = {
         "مرحبن": "أهلاً وسهلاً",
         "مرحبا": "يسعدنا انضمامكم",
@@ -53,7 +53,7 @@ def smart_autonomous_rewrite(text):
     for wrong, right in replacements.items():
         cleaned = cleaned.replace(wrong, right)
         
-    # إعادة هندسة النص وصياغته بطريقة جذابة ومبتكرة تناسب القنوات التقنية
+    # صياغة المنشور بشكل احترافي وجديد كلياً
     structured_content = (
         f"نضع بين أيديكم أبرز المستجدات والتفاصيل التقنية:\n\n"
         f"« {cleaned} »\n\n"
@@ -79,12 +79,10 @@ def capture_forwarded_content(message):
     if message.photo:
         photo_file_id = message.photo[-1].file_id
         
-    bot.reply_to(message, "🤖 جاري إعادة صياغة النص وتخصيصه للقناة...")
+    bot.reply_to(message, "🤖 جاري معالجة وتغيير صياغة النص...")
     
-    # توليد الصياغة الجديدة كلياً بذكاء ودون أوامر شاقة
     final_rewritten_text = smart_autonomous_rewrite(text)
     
-    # معالجة واختصار الروابط تلقائياً
     urls = re.findall(r'(https?://[^\s]+)', final_rewritten_text)
     final_text = final_rewritten_text
     for u in urls:
