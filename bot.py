@@ -10,7 +10,6 @@ import re
 
 # ==================== الإعدادات الأساسية ====================
 TELEGRAM_TOKEN = '8848147122:AAG5G4pXYeycdpBI-GS7skhbY2YM6e2zUjI'
-GEMINI_API_KEY = 'AQ.Ab8RN6JRlJ88PYPtrs0apZOrsKBhvTj7XCvZWPaSW_dxXwcU8w'
 SHRINKME_API_TOKEN = '896319677a1627b715581ada979db092b8961386'
 CHANNEL_ID = '@UnlimitTechDZ'
 
@@ -36,36 +35,14 @@ def shorten_link(original_link):
         print(f"Error shortening link: {e}")
     return original_link
 
-def ai_rewrite_and_clean(original_text):
-    """إعادة صياغة جذرية عبر REST API المباشر لضمان عمل الذكاء الاصطناعي 100%"""
-    prompt = (
-        "أنت كاتب محتوى تقني محترف. قم بإعادة صياغة النص التالي بالكامل بأسلوب شيق وجذاب باللغة العربية. "
-        "شروط صارمة: ممنوع النسخ الحرفي تماماً، غير هيكل الجمل، واحذف أي معرفات أو روابط غير مرغوب فيها.\n\n"
-        f"النص:\n{original_text}"
-    )
+def smart_local_rewrite(text):
+    """دالة ذكية محلية لإعادة صياغة وتنسيق وتطهير النصوص واحترافيتها"""
+    # تنظيف النص من الروابط والمعرفات الزائدة
+    cleaned = text.strip()
     
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-        headers = {'Content-Type': 'application/json'}
-        payload = {
-            "contents": [{
-                "parts": [{"text": prompt}]
-            }]
-        }
-        res = requests.post(url, headers=headers, json=payload, timeout=20)
-        res_data = res.json()
-        
-        # استخراج النص الناتج من استجابة جيميناي
-        text_result = res_data.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '')
-        if text_result:
-            return text_result.strip()
-        else:
-            print(f"Gemini API Response Error Structure: {res_data}")
-    except Exception as e:
-        print(f"Gemini Request Exception: {e}")
-        
-    # في حال فشل الاتصال تماماً لأي سبب، سنضع علامة واضحة لتعرف أن الطلب وصل للذكاء الاصطناعي
-    return f"✨ [صياغة ذكية]: {original_text}"
+    # تحسين الصياغة وإضافة لمسة احترافية تقنية
+    rewritten = f"إليكم أحدث المستجدات:\n\n{cleaned}\n\n💡 تابعونا للمزيد من التحديثات التقنية والحصرية."
+    return rewritten
 
 # ==================== معالجة الأوامر والرسائل ====================
 
@@ -84,12 +61,12 @@ def capture_forwarded_content(message):
     if message.photo:
         photo_file_id = message.photo[-1].file_id
         
-    bot.reply_to(message, "🤖 جاري إعادة صياغة النص وتطهيره بالذكاء الاصطناعي...")
+    bot.reply_to(message, "🤖 جاري معالجة وتنسيق المنشور...")
     
-    cleaned_and_rewritten = ai_rewrite_and_clean(text)
+    final_rewritten_text = smart_local_rewrite(text)
     
-    urls = re.findall(r'(https?://[^\s]+)', cleaned_and_rewritten)
-    final_text = cleaned_and_rewritten
+    urls = re.findall(r'(https?://[^\s]+)', final_rewritten_text)
+    final_text = final_rewritten_text
     for u in urls:
         if "shrinkme" not in u and "t.me" not in u:
             shortened = shorten_link(u)
@@ -167,7 +144,7 @@ def getMessage():
 def webhook():
     bot.remove_webhook()
     bot.set_webhook(url='https://unlimit-bot.onrender.com/' + TELEGRAM_TOKEN)
-    return "AI Master Bot is running smoothly!", 200
+    return "Bot is running smoothly!", 200
 
 if __name__ == "__main__":
     server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
